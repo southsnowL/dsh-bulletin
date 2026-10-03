@@ -11,7 +11,7 @@
 [![实测：DSH 0.2.0-rc.2 · Desktop 0.10.0](https://img.shields.io/badge/实测-DSH_0.2.0--rc.2_·_Desktop_0.10.0-2ea44f)](#3-安装插件)
 ![实测平台：Windows](https://img.shields.io/badge/实测平台-Windows-0078d4)
 
-[一次跨工作区协作](#-一次跨工作区协作) · [会话之间是对等的](#-会话之间是对等的) · [快速开始](#-快速开始) · [文档](#-文档)
+[一次跨工作区协作](#-一次跨工作区协作) · [会话之间是平级对等的](#-会话之间是平级对等的) · [快速开始](#-快速开始) · [文档](#-文档)
 
 <sub>Peer-to-peer messaging for AI sessions on one computer: DeepSeek Harness plugins for announcements, desk-to-desk tickets and a sidebar panel.No lead agent: any desk can hand work to any other, and it works across workspaces and drives. A reference implementation; docs in Chinese.</sub>
 

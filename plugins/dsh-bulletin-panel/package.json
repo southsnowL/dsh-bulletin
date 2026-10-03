@@ -1,0 +1,27 @@
+{
+  "name": "dsh-bulletin-panel",
+  "version": "0.3.28",
+  "private": true,
+  "type": "module",
+  "description": "办公室侧边栏面板：在右侧栏看公告与投递状态；公告可由用户在这里发布、编辑（投递状态只读）。权威文件仍在 00-通用\\。",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["dsh-better-sidebar"]
+    }
+  },
+  "meta": {
+    "title": "办公室面板",
+    "description": "把办公室公告与跨桌投递做成右侧栏卡片；公告可以在这里发布和编辑。"
+  }
+}

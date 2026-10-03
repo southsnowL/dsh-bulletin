@@ -1,0 +1,53 @@
+- insert:
+    - id: bulletin-dispatch
+      name: dsh-bulletin-dispatch
+      # ⚠️ **这里故意几乎不配任何东西**（2026-10-01）。
+      #
+      # 原来这份文件里写着**作者本机的路径和桌名** —— 那是"能不能进仓库"的硬伤：
+      #   · 对别人**一定是错的**，而且**错得不出声**（插件会安静地去读一个不存在的目录）
+      #   · 一旦提交，它就**永久留在 git 历史里**
+      #
+      # ⇒ 现在这份只做一件事：**把插件登记进来**。
+      #
+      # ## ⭐ 你的环境配置该写在哪
+      #
+      # 写在**你自己的 profile patch** 里，**不要写在这里**：
+      #
+      # ```
+      # <harness>\profiles\<你的 profile>\cordis.patch.yml
+      #
+      # - id: bulletin-dispatch
+      #   name: dsh-bulletin-dispatch
+      #   config:
+      #     workspaceRoot: D:\my-office
+      #     deskNames:
+      #       "01": 甲组
+      #       "02": 乙组
+      #     statusFile: D:\my-office\00-通用\投递状态.md
+      # ```
+      #
+      # ⚠️ **Cordis 的覆盖会整条替换该条目的配置** ——
+      # 所以在 profile patch 里**要写全你需要的字段**，不能只写想改的那几个。
+      #
+      # ## 必填的一项
+      #
+      # - `workspaceRoot` —— 工作区根（用于路径归一，和判断"哪些路径算办公室范围"）
+      #
+      # ⚠️ **没配的后果**（2026-10-03 照代码核过，原来这里写的是"插件装不上"—— 不准）：
+      #   插件**照常加载**，但**状态表不会装配**，日志里出一条警告。
+      #   ⇒ 症状是"面板里没有投递页 / 没有 `00-通用\投递状态.md`"，而不是装不上。
+      #
+      # ## 可选（不配就用通用默认值）
+      #
+      # - `features` —— 功能开关。**这是一整个对象，不配就用全默认**（**每一项默认都是开的**）；
+      #   它的子项都带 `.default(true)` ⇒ **想少要功能是"逐个关"，不是"逐个开"**
+      #   （⚠️ 原来这里写成"想只用一部分就逐个开" —— 说反了）。
+      #   子项：`identity` · `sessionGc` · `proposeRename` · `dispatch` · `dispatchTools` · `status`。
+      #   **清单里没有的功能就是没有的**（比如曾经的 `guard` 已删，不是"关着而已"）。
+      # - `deskNames` —— 桌号 → 桌名。**不配也能跑**（显示成"桌 01"）
+      # - `identityNotice` —— 认桌成功后注入的那一句（`{desk}` / `{title}` 会被替换）
+      # - `recheckMs` —— 多久检查一次会话标题（认桌）
+      # - `sweepIntervalMs` —— 会话回收的节流（毫秒）。0 = 关掉回收
+      # - `statusFile` —— 状态表输出到哪。**留空 ⇒ `<workspaceRoot>\00-通用\投递状态.md`**
+      # - `stateFile` · `mirrorToDomain` —— 存储落哪（一般不用动）
+      # - `debugLog` —— 诊断日志。**默认关闭** —— 排查时才填一个路径

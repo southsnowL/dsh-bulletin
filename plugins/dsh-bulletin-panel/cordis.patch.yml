@@ -1,0 +1,48 @@
+- insert:
+    - id: bulletin-panel
+      name: dsh-bulletin-panel
+      # ⚠️ **这里故意几乎不配任何东西**（2026-10-01）。
+      #
+      # 原来这份文件里写着**作者本机的工作区路径** —— 对别人一定是错的。
+      #
+      # ⇒ 现在这份只做一件事：**把插件登记进来**。
+      #
+      # ## ⭐ 你的环境配置该写在哪
+      #
+      # 写在**你自己的 profile patch** 里，**不要写在这里**：
+      #
+      # ```
+      # <harness>\profiles\<你的 profile>\cordis.patch.yml
+      #
+      # - id: bulletin-panel
+      #   name: dsh-bulletin-panel
+      #   config:
+      #     workspaceRoot: D:\my-office
+      #     announceFile: 00-通用\公告.md
+      #     statusFile: 00-通用\投递状态.md
+      #     allowWrite: true
+      # ```
+      #
+      # ⚠️ **Cordis 的覆盖会整条替换该条目的配置** ——
+      # 所以在 profile patch 里**要写全你需要的字段**。
+      #
+      # ## 必填的一项
+      #
+      # - `workspaceRoot` —— 工作区根。**没配的话这个插件会拒绝启动并报错**，
+      #   而不是安静地去读一个不存在的地方。**那是故意的。**
+      #
+      # ## 可选（不配就用通用默认值）
+      #
+      # - `announceFile` —— 相对 `workspaceRoot`，或用绝对路径（默认 `00-通用\公告.md`）
+      # - `statusFile`   —— 同上（默认 `00-通用\投递状态.md`）
+      # - ⭐ `allowWrite` —— 写能力总开关。
+      #   `true` = 能发布/编辑公告；`false` = **面板退回纯只读**
+      # - ⭐ `seenUrl`   —— 公告插件那个只读接口的地址
+      #   （默认按请求的 `Host` 头拼 `http://<host>/sidebar/api/announce/seen`）
+      #
+      # ⚠️ **这一份清单就是"面板真读的键"的全部**（2026-10-03 照代码核过）——
+      #   别照抄记忆里的名字。**这里原来写过一个 `refreshMs`，而它从来不存在**
+      #   （刷新间隔是前端写死的 20 秒，配不了）。
+      #
+      # ⚠️ **状态表永远是只读的**（`statusFile`）—— 它是投递插件生成的**派生视图**，
+      # 面板写它就是造第二个真相源。**这一条没有开关。**

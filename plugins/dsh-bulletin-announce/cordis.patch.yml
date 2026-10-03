@@ -1,0 +1,48 @@
+- insert:
+    - id: bulletin-announce
+      name: dsh-bulletin-announce
+      # ⚠️ **这里故意几乎不配任何东西**（2026-10-01）。
+      #
+      # 原来这份文件里写着**作者本机的路径和桌名** —— 那是"能不能进仓库"的硬伤：
+      #   · 对别人**一定是错的**，而且**错得不出声**（插件会安静地去读一个不存在的目录）
+      #   · 一旦提交，它就**永久留在 git 历史里**
+      #
+      # ⇒ 现在这份只做一件事：**把插件登记进来**。
+      #
+      # ## ⭐ 你的环境配置该写在哪
+      #
+      # 写在**你自己的 profile patch** 里，**不要写在这里**：
+      #
+      # ```
+      # <harness>\profiles\<你的 profile>\cordis.patch.yml
+      #
+      # - id: bulletin-announce
+      #   name: dsh-bulletin-announce
+      #   config:
+      #     announcementFile: D:\my-office\00-通用\公告.md
+      #     workspaceRoot: D:\my-office
+      # ```
+      #
+      # 理由：profile patch **不进任何仓库** —— 那是"我这个环境怎么配"，
+      # 不是"这个插件是什么"。
+      #
+      # ## 必填的两项
+      #
+      # - `announcementFile` —— 公告文件的完整路径
+      # - `workspaceRoot` —— 工作区根
+      #
+      # ⚠️ **没配的后果**（2026-10-03 照代码核过，原来这里写的是"必填项会当场报错"—— 不准）：
+      #   插件**照常加载**，**加载时不会报错**。真实症状是：
+      #   · 读不到公告 ⇒ **各桌静默收不到**（注入是空的那一步，界面上看不出来）
+      #   · 调 `announce` 发布时才抛错
+      #   ⇒ **它是"安静地做错事"，不是"当场拦下"。**（面板那一个是真会拒绝启动的。）
+      #
+      # ## 可选（不配就用通用默认值）
+      #
+      # `enabled`（全局开关）· `maxPerInjection`（单次最多几条）·
+      # `defaultTtlDays`（条目没写有效期时的默认天数）· `publisherNames`（工作区→桌名）·
+      # `fallbackPublisher` · `titlePrefix` · `hint`（注入时附的那句指路）· `resendNote` ·
+      # `mutedNotice` · `debugLog`
+      #
+      # ⚠️ `cursorFile` / `muteFile` 有各自的默认位置（在 DSH 的数据目录下）——
+      # **别随手改它们**：那两份文件里存着"读到哪了"和"静音没有"的真实状态。

@@ -1,0 +1,26 @@
+{
+  "name": "dsh-bulletin-dispatch",
+  "version": "1.3.19",
+  "private": true,
+  "type": "module",
+  "description": "跨桌投递：认桌（读会话标题的 NN- 前缀）+ 按桌投递（单子挂在「桌」上，谁先来谁取走）+ 会话回收 + 给人看的状态表。一个包、多功能、可逐个开关。",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-storage-domain": "*"
+  },
+  "dependencies": {
+    "schemastery": "^3.18.0",
+    "zod": "^4.4.3"
+  }
+}

@@ -54,12 +54,30 @@ function git(args, opts = {}) {
   return code;
 }
 
-/** 读一行（用 `readline`，比 `readFileSync(0)` 稳，也不会被沙箱的管道限制影响）。 */
+/**
+ * 读一行（用 `readline`，比 `readFileSync(0)` 稳，也不会被沙箱的管道限制影响）。
+ *
+ * ⚠️ **输出被重定向时（`node 推送.mjs > 文件`）必须不能卡死** ——
+ * `readline` 在 stdin 已经结束时会把 `question` 的回调直接打回来（`undefined`），
+ * 下面按空串处理 ⇒ 退化成自动提交信息。**实测过**：重定向不会挂住。
+ */
 function ask(question) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(question, (answer) => { rl.close(); resolve(answer.trim()); });
+    rl.question(question, (answer) => { rl.close(); resolve((answer ?? '').trim()); });
   });
+}
+
+/**
+ * 让 git **直接输出中文路径**（默认会写成 `"\346\216\250\351\200\201.mjs"` 这种八进制转义，
+ * 人看不懂）。只影响这次调用的输出格式，**不改任何仓库配置**。
+ */
+const GIT_ENV = { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C.UTF-8' };
+
+/** 跑一条 git 命令并把**标准输出抓成字符串**（只给"读状态"这类小命令用）。 */
+function gitText(args) {
+  const r = spawnSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: HERE, encoding: 'utf8', env: GIT_ENV });
+  return r.stdout ?? '';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,12 +94,10 @@ say(`   仓库：${HERE}`);
 say('');
 
 /** ① 先看有没有东西可提交 —— 没有就直接说清，别让你白推一次。 */
-const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: HERE, encoding: 'utf8' });
-const changed = (dirty.stdout ?? '').trim();
+const changed = gitText(['status', '--porcelain']).trim();
 if (changed === '') {
   say('   本地没有未提交的改动。');
-  const ahead = spawnSync('git', ['rev-list', '--count', 'origin/main..HEAD'], { cwd: HERE, encoding: 'utf8' });
-  const n = Number.parseInt((ahead.stdout ?? '0').trim(), 10) || 0;
+  const n = Number.parseInt(gitText(['rev-list', '--count', 'origin/main..HEAD']).trim(), 10) || 0;
   if (n === 0) {
     say('   远端也是最新的 —— 什么都不用做。');
     say('');
@@ -96,7 +112,14 @@ if (changed === '') {
 
 const files = changed.split('\n');
 say(`   要提交的改动：${files.length} 个文件`);
-for (const line of files.slice(0, 12)) say(`     ${line.slice(0, 3).trim().padEnd(2)} ${line.slice(3).trim()}`);
+/**
+ * ⚠️ `git status --porcelain` 每行形如 `" M 路径"`（**状态码 2 位 + 空格 + 路径**）。
+ * 直接 `slice(3)` 会**吃掉路径第一个字符**（实测把 `README.md` 显示成 `EADME.md`）——
+ * **⇒ 用正则切**，别数固定位置。
+ * ⚠️ 而路径带中文时 git 会输出**八进制转义**（`"\346\216\250..."`）——
+ * `-z` 那种写法能避免，但这里只要"肉眼看得懂"，**⇒ 用 `core.quotepath=false` 让 git 直接给中文**。
+ */
+for (const line of files.slice(0, 12)) say(`     ${line.slice(0, 2)} ${line.replace(/^.{1,2}\s+/u, '')}`);
 if (files.length > 12) say(`     …还有 ${files.length - 12} 个`);
 say('');
 say('   ⚠️ 上面这些**全都会**提交上去 —— 有不该进的，现在按 Ctrl+C 停下。');

@@ -208,6 +208,12 @@ D:\my-office\
 
 **三个包各自独立**，装哪个看你需要哪个（`announce` 和 `dispatch` 互相不依赖；面板是可选的，见下）：
 
+| 包 | 装什么 | 包页面 |
+|---|---|---|
+| `dsh-bulletin-announce` | 公告通道 | [npm](https://www.npmjs.com/package/dsh-bulletin-announce) |
+| `dsh-bulletin-dispatch` | 跨桌单子 | [npm](https://www.npmjs.com/package/dsh-bulletin-dispatch) |
+| `dsh-bulletin-panel` | 侧栏面板（可选，依赖 `dsh-better-sidebar`） | [npm](https://www.npmjs.com/package/dsh-bulletin-panel) |
+
 ```sh
 # 从 npm 装（不用先克隆仓库）
 dsh plugin --profile <profile> add dsh-bulletin-announce

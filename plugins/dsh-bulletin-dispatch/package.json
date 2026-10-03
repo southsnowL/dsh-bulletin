@@ -1,6 +1,6 @@
 {
   "name": "dsh-bulletin-dispatch",
-  "version": "1.3.19",
+  "version": "1.3.20",
   "type": "module",
   "description": "跨桌投递：认桌（读会话标题的 NN- 前缀）+ 按桌投递（单子挂在「桌」上，谁先来谁取走）+ 会话回收 + 给人看的状态表。一个包、多功能、可逐个开关。",
   "license": "Apache-2.0",
@@ -16,7 +16,8 @@
   "files": [
     "index.js",
     "cordis.patch.yml",
-    "src/"
+    "src/",
+    "README.md"
   ],
   "main": "index.js",
   "exports": {

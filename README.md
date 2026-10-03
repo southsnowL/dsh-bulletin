@@ -206,14 +206,26 @@ D:\my-office\
 
 #### 3. 安装插件
 
-先装投递和公告：
+**三个包各自独立**，装哪个看你需要哪个（`announce` 和 `dispatch` 互相不依赖；面板是可选的，见下）：
+
+```sh
+# 从 npm 装（不用先克隆仓库）
+dsh plugin --profile <profile> add dsh-bulletin-announce
+dsh plugin --profile <profile> add dsh-bulletin-dispatch
+```
+
+**已经在本地克隆了仓库**的话，也可以装本地目录（改完代码立刻生效，适合改插件的时候）：
 
 ```sh
 dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-dispatch
 dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-announce
 ```
 
-本地包用 `file:` 前缀安装，pnpm 会一并装好插件自己的依赖（直接写目录路径等于建符号链接，不会装依赖），说明见 [pnpm 官方文档](https://pnpm.io/10.x/cli/link#whats-the-difference-between-pnpm-link-and-using-the-file-protocol)。
+本地目录要用 `file:` 前缀，pnpm 会一并装好插件自己的依赖（直接写目录路径等于建符号链接，不会装依赖），说明见 [pnpm 官方文档](https://pnpm.io/10.x/cli/link#whats-the-difference-between-pnpm-link-and-using-the-file-protocol)。
+
+> [!NOTE]
+> 安装时 pnpm 会提示"peer 依赖没满足"（`@deepseek-ai/dsh-*`）—— **那是正常的，不用管**：
+> 那些包由 DSH 自己提供，插件不该自己装一份（装错版本反而会让插件加载失败）。
 
 要用面板，先装侧边栏，再装面板。侧边栏的版本要和你的 DSH 对上，下面两个组合都实测跑通过：
 
@@ -225,7 +237,7 @@ dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-announce
 ```sh
 # 侧边栏按上表选版本，这里以官方 DSH 0.2.0-rc.2 为例
 dsh plugin --profile <profile> add dsh-better-sidebar@0.24.1
-dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-panel
+dsh plugin --profile <profile> add dsh-bulletin-panel
 ```
 
 [侧边栏的仓库](https://github.com/omdsh-dev/DSH-better-sidebar)里有按 DSH 版本选版本的说明：0.2.0 线的 DSH 用 `0.24.1` 起的版本，0.1.7 线（比如 Desktop `0.10.0`）固定 `0.22.1`。版本线不对时，侧边栏可能被 DSH 启动时的预检静默禁用，表现就是重开 DSH 后右侧栏没有"办公室"卡片。只用公告和单子时，侧边栏和面板都可以不装。

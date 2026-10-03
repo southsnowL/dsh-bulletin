@@ -1,10 +1,23 @@
 {
   "name": "dsh-bulletin-panel",
   "version": "0.3.28",
-  "private": true,
   "type": "module",
   "description": "办公室侧边栏面板：在右侧栏看公告与投递状态；公告可由用户在这里发布、编辑（投递状态只读）。权威文件仍在 00-通用\\。",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/southsnowL/dsh-bulletin.git",
+    "directory": "plugins/dsh-bulletin-panel"
+  },
+  "homepage": "https://github.com/southsnowL/dsh-bulletin#readme",
+  "bugs": {
+    "url": "https://github.com/southsnowL/dsh-bulletin/issues"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml"
+  ],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

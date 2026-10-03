@@ -532,6 +532,33 @@ function publisherFor(cwd, config) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * 插件自己的落盘目录：**优先问平台要 `DSH_HOME`**。
+ *
+ * ## ⚠️ 为什么不再写死 `%APPDATA%\dsh-desktop\harness\`（2026-10-03 改）
+ *
+ * 那个路径是**社区壳（DSH Desktop）**的家 —— 它只是**当时那个客户端**的约定，
+ * 不是"平台给插件的位置"。官方 DeepSeek Harness 的家是 `DSH_HOME`（`~\.dsh`）。
+ * 写死 APPDATA 的后果是实打实的：
+ *
+ * > `/mute` 的状态会被写进**那套已经停用、准备清掉**的旧家里 ——
+ * > 把要删的目录重新造出来，而新家里永远找不到它。
+ *
+ * ⇒ 所以这里**和 `bulletin-dispatch` 的 `defaultStateFile()` 用同一套判据**：
+ * **先 `DSH_HOME`，退路才是按 `APPDATA` 拼**。
+ * （退路保留社区壳时代的位置，是给"拿不到 `DSH_HOME`"的场合兜底 ——
+ *  不另猜路径，也就不会在别人机器上造出第三个家。）
+ *
+ * @returns {string} 目录；两处环境变量都没有时返回空串（调用方退化成裸文件名）
+ */
+function stateDir() {
+  const home = process.env.DSH_HOME;
+  if (typeof home === 'string' && home !== '') return `${home}\\storages`;
+  const appData = process.env.APPDATA;
+  if (typeof appData === 'string' && appData !== '') return `${appData}\\dsh-desktop\\harness\\storages`;
+  return '';
+}
+
+/**
  * 游标文件的默认位置。
  *
  * 放在 **DSH 家目录的 `storages\`** 下，与平台自己的持久状态
@@ -540,20 +567,14 @@ function publisherFor(cwd, config) {
  * 显式配置 `cursorFile` 可以覆盖。
  */
 function defaultCursorFile() {
-  const home = process.env.APPDATA;
-  if (typeof home === 'string' && home !== '') {
-    return `${home}\\dsh-desktop\\harness\\storages\\bulletin_announce_cursor.json`;
-  }
-  return 'bulletin_announce_cursor.json';
+  const dir = stateDir();
+  return dir === '' ? 'bulletin_announce_cursor.json' : `${dir}\\bulletin_announce_cursor.json`;
 }
 
 /** 静音状态文件的默认位置（与游标文件同处，理由同上）。 */
 function defaultMuteFile() {
-  const home = process.env.APPDATA;
-  if (typeof home === 'string' && home !== '') {
-    return `${home}\\dsh-desktop\\harness\\storages\\bulletin_announce_mute.json`;
-  }
-  return 'bulletin_announce_mute.json';
+  const dir = stateDir();
+  return dir === '' ? 'bulletin_announce_mute.json' : `${dir}\\bulletin_announce_mute.json`;
 }
 
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-bulletin-announce",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "type": "module",
   "description": "办公室公告机制：一个追加式的公告文件（AI 只往后加，改和删是用户的事）+ 每步之前把新公告送进会话（开桌补课、压缩后重发）",
   "license": "Apache-2.0",

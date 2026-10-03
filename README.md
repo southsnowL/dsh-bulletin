@@ -250,7 +250,7 @@ dsh plugin --profile <profile> add dsh-bulletin-panel
 
 #### 4. 配置同一间办公室
 
-配置写在目标 profile 自己的 `cordis.patch.yml` 里，不要写进下载下来的插件目录。它在 DSH 数据目录的 `profiles/<profile>/` 下，即 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`；数据目录不一定是程序的安装目录。Windows 上的 DSH Desktop 通常是 `%APPDATA%\dsh-desktop\harness\profiles\desktop\cordis.patch.yml`。改之前先备份一份。
+配置写在目标 profile 自己的 `cordis.patch.yml` 里，不要写进下载下来的插件目录。它在 DSH 数据目录的 `profiles/<profile>/` 下，即 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`；数据目录不一定是程序的安装目录。Windows 上通常是 `C:\Users\<你>\.dsh\profiles\<profile>\cordis.patch.yml`（`<profile>` 按你实际用的填，常见是 `desktop`；社区壳 DSH Desktop 的数据目录是 `%APPDATA%\dsh-desktop\harness\`）。改之前先备份一份。
 
 下面三项对应三个插件已经登记的条目（插件自带的 `cordis.patch.yml` 用 `- insert:` 登记过了），profile patch 里按 `id` 写这三条，就是更新它们的配置。合并进现有的文件：已有相同 `id` 时更新那一条，其他插件的配置保持不动。Cordis 会整份替换该条目的 `config`，不会逐键合并，所以要写全你需要的字段。
 

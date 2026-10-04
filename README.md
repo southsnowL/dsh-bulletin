@@ -13,7 +13,7 @@
 
 [一次跨工作区协作](#-一次跨工作区协作) · [会话之间是平级对等的](#-会话之间是平级对等的) · [快速开始](#-快速开始) · [文档](#-文档)
 
-<sub>Peer-to-peer messaging for AI sessions on one computer: DeepSeek Harness plugins for announcements, desk-to-desk tickets and a sidebar panel.No lead agent: any desk can hand work to any other, and it works across workspaces and drives. A reference implementation; docs in Chinese.</sub>
+<sub>Peer-to-peer communication and collaboration between AI sessions across workspaces on one computer. Built for DeepSeek Harness , with announcements, desk-to-desk tickets, and a sidebar panel. Sessions are peers: no lead agent, and any desk can hand work to another—even across workspaces and drives. A reference implementation; docs in Chinese.</sub>
 
 </div>
 

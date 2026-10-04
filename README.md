@@ -4,7 +4,7 @@
 
 **让一台电脑上的 AI 们，跨会话、跨工作区实现消息互通与协作。**
 
-会话之间是对等的：没有队长，可互相派活，像一栋楼里的几个部门互相收发文。
+会话之间是对等的：没有队长，可互相派活，像一栋楼里的几个部门互相通信与协作。
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![DeepSeek Harness 插件](https://img.shields.io/badge/DeepSeek_Harness-插件-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)

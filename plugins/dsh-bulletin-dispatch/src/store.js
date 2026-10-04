@@ -720,17 +720,31 @@ function mirrorTable(fileBacked, domainTable, name, log) {
  * `%APPDATA%\dsh-desktop\launch-root\bulletin_dispatch_state.json`（**不是** `harness\storages\`）。
  * 那里既不好找、也不在"持久状态该待的地方"。
  *
- * ⇒ 优先用平台给的 **`DSH_HOME`**（它就是这个 Harness 的家目录），
- * 退路才是按 `APPDATA` 拼。**两者都给绝对路径。**
+ * ## ⚠️⚠️ 退路**不许猜"社区壳那个家"**（2026-10-04 实测后改）
+ *
+ * 原来的顺序是 `DSH_HOME` → **`%APPDATA%\dsh-desktop\harness\storages\`**。
+ * 而在**官方客户端**里实测：**`DSH_HOME` 是空的**（没从环境里传下来）⇒ 退路生效 ⇒
+ * **状态被写进了那套已经停用、准备清掉的旧家** —— 实测那儿躺着
+ * **31 张单子 / 27 条领取记录**，而新家那份还是搬家时的旧快照。
+ * ⛔ 旧家一清 ⇒ **去重状态全丢 ⇒ 单子会被重复投递**。
+ *
+ * ⇒ 现在是：**`DSH_HOME` → `%USERPROFILE%\.dsh`（官方客户端的默认家）→ 裸文件名**。
+ *   · 社区壳会把自己的家设进 `DSH_HOME` ⇒ 按它走 ✓（那条线不受影响）；
+ *   · 官方客户端不传 `DSH_HOME`，而它的默认家就是 `~\.dsh` ⇒ 也对 ✓；
+ *   · **不再去猜"某个客户端的家"**。
+ *
+ * ⭐ **最稳的仍然是在 profile 的 patch 里显式配 `stateFile`**（本机值写在本机配置里）。
+ * ⚠️ 从社区壳时代过来的：旧文件在 `%APPDATA%\dsh-desktop\harness\storages\bulletin_dispatch_state.json`，
+ * 把它拷到你配的那个 `stateFile` 上，去重状态就不会断。
  */
 function defaultStateFile() {
   const home = process.env.DSH_HOME;
   if (typeof home === 'string' && home !== '') {
     return `${home}\\storages\\bulletin_dispatch_state.json`;
   }
-  const appData = process.env.APPDATA;
-  if (typeof appData === 'string' && appData !== '') {
-    return `${appData}\\dsh-desktop\\harness\\storages\\bulletin_dispatch_state.json`;
+  const profile = process.env.USERPROFILE;
+  if (typeof profile === 'string' && profile !== '') {
+    return `${profile}\\.dsh\\storages\\bulletin_dispatch_state.json`;
   }
   return 'bulletin_dispatch_state.json';
 }

@@ -544,17 +544,21 @@ function publisherFor(cwd, config) {
  * > 把要删的目录重新造出来，而新家里永远找不到它。
  *
  * ⇒ 所以这里**和 `bulletin-dispatch` 的 `defaultStateFile()` 用同一套判据**：
- * **先 `DSH_HOME`，退路才是按 `APPDATA` 拼**。
- * （退路保留社区壳时代的位置，是给"拿不到 `DSH_HOME`"的场合兜底 ——
- *  不另猜路径，也就不会在别人机器上造出第三个家。）
+ * **`DSH_HOME` → `%USERPROFILE%\.dsh`（官方客户端的默认家）**。
  *
- * @returns {string} 目录；两处环境变量都没有时返回空串（调用方退化成裸文件名）
+ * ⚠️⚠️ **退路不许猜"社区壳那个家"**（2026-10-04 又实测了一次）：
+ * 官方客户端里 **`DSH_HOME` 是空的**（没从环境里传下来）⇒ 退路生效 ⇒
+ * `/mute` 的状态会被写进**那套已经停用、准备清掉的旧家**里去。
+ * （社区壳自己会把家设进 `DSH_HOME` ⇒ 那条线照旧 ✓，不会因为这次改动受影响。）
+ * ⭐ 最稳的是在 profile 的 patch 里显式配 `cursorFile` / `muteFile`（本机值写在本机配置里）。
+ *
+ * @returns {string} 目录；两个环境变量都没有时返回空串（调用方退化成裸文件名）
  */
 function stateDir() {
   const home = process.env.DSH_HOME;
   if (typeof home === 'string' && home !== '') return `${home}\\storages`;
-  const appData = process.env.APPDATA;
-  if (typeof appData === 'string' && appData !== '') return `${appData}\\dsh-desktop\\harness\\storages`;
+  const profile = process.env.USERPROFILE;
+  if (typeof profile === 'string' && profile !== '') return `${profile}\\.dsh\\storages`;
   return '';
 }
 

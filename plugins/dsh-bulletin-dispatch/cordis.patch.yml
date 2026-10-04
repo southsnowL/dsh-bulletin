@@ -49,5 +49,11 @@
       # - `recheckMs` —— 多久检查一次会话标题（认桌）
       # - `sweepIntervalMs` —— 会话回收的节流（毫秒）。0 = 关掉回收
       # - `statusFile` —— 状态表输出到哪。**留空 ⇒ `<workspaceRoot>\00-通用\投递状态.md`**
-      # - `stateFile` · `mirrorToDomain` —— 存储落哪（一般不用动）
+      # - `stateFile` —— 单子/领取记录落在哪个文件。**留空 ⇒ `DSH_HOME`（拿不到则 `~\.dsh`）
+      #     的 `storages\bulletin_dispatch_state.json`**。⭐ **显式写死最稳**
+      #     ⚠️ 本机实测：**官方客户端里 `DSH_HOME` 是空的** —— 默认退路必须能落到 `~\.dsh`，
+      #     否则状态会被写进**已经停用的旧客户端家**，那边一清就去重状态全丢（单子会重复投递）
+      #     ⚠️ 从旧客户端搬过来的：旧文件在 `%APPDATA%\dsh-desktop\harness\storages\`，
+      #     把它拷到你写的那个路径上，去重状态才不断
+      # - `mirrorToDomain` —— 要不要同时镜像到平台的存储域（**默认关**）
       # - `debugLog` —— 诊断日志。**默认关闭** —— 排查时才填一个路径

@@ -44,5 +44,8 @@
       # `fallbackPublisher` · `titlePrefix` · `hint`（注入时附的那句指路）· `resendNote` ·
       # `mutedNotice` · `debugLog`
       #
-      # ⚠️ `cursorFile` / `muteFile` 有各自的默认位置（在 DSH 的数据目录下）——
+      # ⚠️ `cursorFile` / `muteFile` 有各自的默认位置（`DSH_HOME` → `~\.dsh` 的 `storages\`）——
       # **别随手改它们**：那两份文件里存着"读到哪了"和"静音没有"的真实状态。
+      # ⭐ **但换过客户端 / 搬过家的人要留意**：本机实测过"**官方客户端里 `DSH_HOME` 是空的**"——
+      # 那时退路一旦去猜旧客户端的家，`/mute` 的状态就会写进**已经停用的旧家**。
+      # ⇒ 那种情况**显式写死这两个路径**最稳（本机值写在本机配置里，不进仓库）。

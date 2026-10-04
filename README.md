@@ -111,7 +111,7 @@ dsh-bulletin 是一组 [DeepSeek Harness（DSH）](https://github.com/deepseek-a
 
 把本仓库地址，或者下载好的仓库目录，交给一个能读文件、能在本机执行操作的 agent。它可以是 DSH 会话，也可以是你平时用来整理电脑环境的其他 agent；后者只是安装助手，不会因此接入办公室的消息通道。
 
-先把下面的路径和分工换成你自己的，再把整段发给它：
+**先把下面的路径和分工换成你自己的**，再把整段发给它：
 
 ```text
 请阅读 dsh-bulletin 的 README、三个插件的 cordis.patch.yml，

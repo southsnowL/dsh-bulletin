@@ -85,7 +85,7 @@ window.__ModuleLoader__.load({
      * 这个常量唯一的作用就是**代表这个文件的内容**。
      * **它一旦和实际不符，那块"一致吗"就会给出错误答案，那比没有它更糟。**
      */
-    const FE_VERSION = '0.3.32';
+    const FE_VERSION = '0.3.33';
 
     /* ═══════════════════════════════════════════════════════════════════
      * 样式 —— ⚠️ 只用主题变量（--dsw-alias-*）。写死颜色的话，亮色/暗色必然有一个不对。
@@ -3148,6 +3148,8 @@ window.__ModuleLoader__.load({
     const TABS = [['announce', '公告'], ['dispatch', '投递'], ['health', '健康']];
 
     function OfficePanelBody(props) {
+      /** ⭐ 组件这一半的样式引用（和 `apply` 那一半各自计数 —— 见 `acquirePanelCss` 的注释）。 */
+      useEffect(() => acquirePanelCss(), []);
       const visible = props.visible !== false;
       const { data, err, busy, loading, loadedAt, active, reload, patch, deletions, delAsked } = useOfficeData(visible);
       const rootRef = useRef(null);
@@ -3497,22 +3499,71 @@ window.__ModuleLoader__.load({
           : null);
     }
 
+    /**
+     * ⭐⭐ **面板样式的那一个 `<style>` 节点**（2026-10-04 加）。
+     *
+     * ## 为什么要有这一套
+     *
+     * 面板的**全部样式**就靠一个 `<style>` 撑着（见下面 `apply`）✓。
+     * 原来是"**谁 apply 谁删**" ✗ —— 而**插件被卸载/重载、却没重新 `apply`** 的那一刻，
+     * 节点被删掉了、**面板还在渲染** ✗ ⇒ 界面变成**裸 DOM**：
+     * 统计卡退回浏览器给 `<button>` 的默认小方块、页签和公告条目全挤成纯文字 ✗
+     * （2026-10-04 用户真撞上 ✓，还一度以为"面板坏了 / 版本旧了" ✗ —— 而 CSS 其实一个字都没变 ✓）。
+     *
+     * ## 现在
+     *
+     * | 函数 | 干什么 |
+     * |---|---|
+     * | `acquirePanelCss()` | **引用计数 +1**，返回释放函数 —— **插件和组件各持一份** ✓<br>⇒ 两边都走了才真删 ✓（正常卸载不留垃圾 ✓） |
+     * | `ensurePanelCss()` | **每次渲染都查一下节点还在不在** ✓，不在就补上 ✓<br>⇒ 不管中间被谁删掉，**下一次渲染就自愈** ✓✓ |
+     */
+    let cssNode = null;
+    let cssRefs = 0;
+    function panelCssNode() {
+      if (cssNode === null) {
+        cssNode = document.createElement('style');
+        cssNode.dataset.dshPlugin = 'dsh-bulletin-panel';
+        cssNode.textContent = CSS;
+      }
+      return cssNode;
+    }
+    function acquirePanelCss() {
+      const el = panelCssNode();
+      if (!el.isConnected) document.head.appendChild(el);
+      cssRefs += 1;
+      return () => {
+        cssRefs -= 1;
+        if (cssRefs <= 0 && el.isConnected) el.remove();
+      };
+    }
+    function ensurePanelCss() {
+      const el = panelCssNode();
+      if (!el.isConnected) document.head.appendChild(el);
+    }
+
     /** 注册给宿主的组件（一个函数组件）：外面包一层错误边界。 */
     function OfficePanel(props) {
+      /**
+       * ⭐⭐ **每次渲染都确认样式还在**（2026-10-04 加）—— 这是"自愈"那一步 ✓。
+       * 放在渲染里而不是 `useEffect` 里，是因为**effect 只在挂载时跑一次** ✗：
+       * 插件被卸载重载后组件并不一定重新挂载 ⇒ 挂载型 effect 补不回来 ✓。
+       * （这个调用是幂等的、只做两次属性读 ✓，代价可以忽略 ✓。）
+       */
+      ensurePanelCss();
       return h(Boundary, null, h(OfficePanelBody, props));
     }
 
     return {
       inject: ['betterSidebar'],
       apply(ctx) {
-        /** 样式随组件卸载而移除（组件的生命周期由平台管）。 */
-        ctx.effect(() => {
-          const el = document.createElement('style');
-          el.dataset.dshPlugin = 'dsh-bulletin-panel';
-          el.textContent = CSS;
-          document.head.appendChild(el);
-          return () => { el.remove(); };
-        });
+        /**
+         * 样式**引用计数 +1**（2026-10-04 改）。
+         *
+         * ⚠️ 原来是"**谁 apply 谁删**"：插件被卸载/重载而没重新 `apply` 时，
+         * 那个 `<style>` 就被删了，而**面板还在渲染** ⇒ 界面裸掉 ✗
+         * （用户 2026-10-04 真撞上 ✓）。现在**插件和组件各持一份引用**，两位都走了才真删 ✓。
+         */
+        ctx.effect(() => acquirePanelCss());
 
         /**
          * ⚠️ **这里曾经挂过一个"前端构建标记"**（`办公室·b4`，2026-10-01 加的，**已撤**）。

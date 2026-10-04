@@ -524,13 +524,47 @@ export function apply(ctx, config) {
    * **装了新版但没重启 ⇒ 前端（新 `client.js`）和后端（旧代码）的版本号对不上** ——
    * **那正是要报警的那件事。**
    */
+  const panelDir = (() => {
+    try { return dirname(fileURLToPath(import.meta.url)); } catch { return ''; }
+  })();
   const panelVersion = (() => {
     try {
-      const here = fileURLToPath(import.meta.url);
-      const pkg = JSON.parse(readFileSync(join(dirname(here), 'package.json'), 'utf8'));
+      const pkg = JSON.parse(readFileSync(join(panelDir, 'package.json'), 'utf8'));
       return typeof pkg.version === 'string' ? pkg.version : '';
     } catch { return ''; }
   })();
+
+  /**
+   * ⭐⭐ **磁盘上那份 `client.js` 自己写着哪一版**（2026-10-04 加）。
+   *
+   * ## 为什么非要有它 —— 那块指示器原来会**指错药方**
+   *
+   * `panelVersion`（`package.json`）和前端写死的 `FE_VERSION` 对不上时，
+   * **光凭这两个数分不清是哪一种，而两种的药方完全相反**：
+   *
+   * | 真实情况 | 该给的药方 |
+   * |---|---|
+   * | **浏览器还拿着旧的 `client.js`** | **硬刷新**（Ctrl+Shift+R）✓ |
+   * | **发版时忘了把 `client.js` 顶部那个常量一起 +1** | **硬刷新没有任何用** ✗（盘上那份文件本身就是旧号）|
+   *
+   * ⚠️ **2026-10-04 真踩到第二种**：`0.3.29`~`0.3.31` 只改了 `package.json`，
+   * 前端常量停在 `0.3.28` ⇒ 健康页一口咬定"浏览器多半还拿着旧的 client.js，硬刷新一下" ✗
+   * —— 而那条建议**永远不可能生效**（文件本身就是 0.3.28）。
+   *
+   * ⇒ 所以把"**盘上那份文件里的常量**"也报出去：前端只要问一句
+   * "**浏览器手里的，和盘上的是同一个吗**"，就能给对药方 ✓
+   * （浏览器手里的 = 盘上的 ⇒ 不是缓存问题 ⇒ 是发版卫生问题）。
+   *
+   * ⚠️ 这里**故意每次请求现读**（和上面的 `panelVersion` 正好相反）——
+   * 它要回答的本来就是"**盘上现在是什么**"；读失败报空串 ⇒ 前端退回"不知道"，不硬猜。
+   */
+  function readClientFileVersion() {
+    try {
+      const src = readFileSync(join(panelDir, 'client.js'), 'utf8');
+      const found = /const FE_VERSION = '([^']+)'/u.exec(src);
+      return found === null ? '' : found[1];
+    } catch { return ''; }
+  }
 
   const announcePath = rel(config?.announceFile, '00-通用\\公告.md');
   const statusPath = rel(config?.statusFile, '00-通用\\投递状态.md');
@@ -708,6 +742,14 @@ export function apply(ctx, config) {
        * **那会把这个字段的用处整个抵消掉**（详见上面 `panelVersion` 那段注释）。
        */
       panelVersion,
+      /**
+       * ⭐ **盘上 `client.js` 里的那个常量**（2026-10-04 加，**每次现读**）。
+       *
+       * 它是 `panelVersion` 的**补充判据**：两个数对不上时，前端靠它分辨
+       * "**浏览器缓存旧了**"（硬刷新 ✓）还是"**发版忘了同步前端常量**"（硬刷新没用 ✗）。
+       * 理由与那次真踩到的坑写在上面 `readClientFileVersion()` 的注释里。
+       */
+      clientFileVersion: readClientFileVersion(),
     };
   };
 

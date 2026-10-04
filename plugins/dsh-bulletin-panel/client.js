@@ -85,7 +85,7 @@ window.__ModuleLoader__.load({
      * 这个常量唯一的作用就是**代表这个文件的内容**。
      * **它一旦和实际不符，那块"一致吗"就会给出错误答案，那比没有它更糟。**
      */
-    const FE_VERSION = '0.3.28';
+    const FE_VERSION = '0.3.32';
 
     /* ═══════════════════════════════════════════════════════════════════
      * 样式 —— ⚠️ 只用主题变量（--dsw-alias-*）。写死颜色的话，亮色/暗色必然有一个不对。
@@ -1045,6 +1045,12 @@ window.__ModuleLoader__.load({
          * （症状：页脚永远不显示版本徽章）。
          */
         panelVersion: str(d.panelVersion),
+        /**
+         * ⭐ **盘上 `client.js` 里的那个常量**（后端**现读**报上来的，2026-10-04 加）。
+         * ⚠️ **必须显式列在这里** —— 这个返回对象是**白名单**，漏一个键就会安静地丢掉
+         * （症状：那块"一致吗"只能靠猜，正是它要解决的问题 ✗）。
+         */
+        clientFileVersion: str(d.clientFileVersion),
         seenByFiltered: typeof d.seenByFiltered === 'boolean' ? d.seenByFiltered : null,
         seenSessions: (typeof d.seenSessions === 'number' && Number.isFinite(d.seenSessions)) ? d.seenSessions : null,
         paths: { ...paths, announce: str(paths.announce), status: str(paths.status) },
@@ -2052,8 +2058,25 @@ window.__ModuleLoader__.load({
        *
        * ⚠️ **前端版本号是写死在这个文件里的常量**（`FE_VERSION`），
        * **必须和 `package.json` 一起改** —— 有断言守着这两个数一致。
+       * ⚠️⚠️ **但"有断言"不等于"断言会被跑到"**：2026-10-04 那次，断言一直在，
+       * 而**自测清单里漏了这一套**（当时只跑了八套）⇒ 版本号漂了三个版本没人发现 ✗。
+       * **⇒ 动过这个文件之后，`探针\test-bulletin-panel.mjs` 必须跑。**
        */
       const be = data.panelVersion;
+      /**
+       * ⭐⭐ **盘上那份 `client.js` 里的常量**（后端**现读**报上来的，2026-10-04 加）。
+       *
+       * 它是这块判断的**关键补充**：`be`（后端）和 `FE_VERSION`（浏览器手里这份）对不上时，
+       * 有两种**药方完全相反**的情况，光凭那两个数**分不出来** ——
+       *   · 盘上常量 **≠** `FE_VERSION` ⇒ **浏览器手里那份旧了** ⇒ **硬刷新** ✓
+       *   · 盘上常量 **=** `FE_VERSION` ⇒ 浏览器手里这份**就是盘上最新的** ⇒
+       *     **硬刷新没用** ✗ —— 真相是**发版时忘了把 `FE_VERSION` 一起 +1**
+       *     （⚠️ 2026-10-04 真踩到：健康页叫人硬刷新，而那条建议**永远不可能生效** ✗）
+       *
+       * ⚠️ 后端没报这个字段（旧版后端 / 读文件失败）⇒ 空串 ⇒ **退回原来的说法**（不硬猜）。
+       */
+      const diskFeRaw = data.clientFileVersion;
+      const diskFe = (diskFeRaw === null || diskFeRaw === undefined) ? '' : String(diskFeRaw);
       let verV;
       if (be === '') {
         verV = h('span', null, `前端 v${FE_VERSION} · `, h('span', { className: 'oap-soft' }, '后端没给版本号'));
@@ -2062,8 +2085,17 @@ window.__ModuleLoader__.load({
       } else {
         const c = cmpVer(be, FE_VERSION);
         let why = renderInline('数字一样、写法不一样 —— 对一下 **client.js** 和 **package.json** 里的写法', 'ver');
-        if (c > 0) why = renderInline('后端更新：浏览器多半还拿着旧的 **client.js**，硬刷新一下（Ctrl+Shift+R）', 'ver');
-        if (c < 0) why = renderInline('前端更新：多半是 **package.json** 的版本号忘了改，或者后端还没重启', 'ver');
+        if (diskFe !== '' && diskFe === FE_VERSION) {
+          /**
+           * ⭐ **浏览器手里这份 == 盘上那份** ⇒ **不是缓存问题**，硬刷新救不了。
+           * 而后端比它们新 ⇒ 真相是"改了 `package.json`、没改 `client.js`"。
+           */
+          why = renderInline(`**硬刷新没用** —— 盘上这份 \`client.js\` 自己就写着 **v${FE_VERSION}**，后端已经到 **v${be.replace(/^v/iu, '')}**：**发版时忘了把顶部那个常量一起 +1**，得改代码重新发版`, 'ver');
+        } else if (c > 0) {
+          why = renderInline('后端更新：浏览器多半还拿着旧的 **client.js**，硬刷新一下（Ctrl+Shift+R）', 'ver');
+        } else if (c < 0) {
+          why = renderInline('前端更新：多半是 **package.json** 的版本号忘了改，或者后端还没重启', 'ver');
+        }
         verV = h(Fragment, null,
           h('span', { className: 'oap-warnline' }, `对不上：前端 v${FE_VERSION} · 后端 v${be.replace(/^v/iu, '')}`),
           h('br'),

@@ -39,7 +39,7 @@
  * **这是用户专用的界面** + **编辑要确认**（前端）+ **乐观锁**（后端）。
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -215,6 +215,79 @@ export function writeAtomic(path, text) {
     try { unlinkSync(tmp); } catch { /* 清理失败就算了 */ }
     throw error;
   }
+}
+
+/**
+ * ⭐⭐ **公告文件的跨进程锁 + "写之前再核一次"**（2026-10-05 加，回应 Codex 审查 **P1-3**）。
+ *
+ * ## 那个窗口
+ *
+ * 面板的策略是**乐观锁**：先读一份快照 → 比 `revision` → 对了就**整份写回** ✓。
+ * 可是"**比**"和"**写**"之间有一段真空 ✗ —— 外部程序（另一个会话的公告工具、
+ * 或另一个 DSH 实例）在这段时间里**追加了一行** ⇒ 我们那次"整份写回"会**把它吞掉** ✓，
+ * 而接口照样回 200 ✓（审查用模拟验证过：追加行消失、返回 `ok:true` ✓）。
+ * ⚠️ 而"直接往文件里追加"是**项目明确支持**的用法 ✓ ⇒ 这不是假想敌 ✓。
+ *
+ * ## 怎么补
+ *
+ * 拿一把**文件锁**（`<file>.lock` 的原子创建 ✓，和 dispatch 那边同一套路 ✓），
+ * 在锁里**重新读盘 + 再核一次 `revision`** ✓，对得上才写 ✓：
+ * - 对得上 ⇒ 窗口没了 ✓（锁期间没有别的写者）
+ * - 对不上 ⇒ 抛 `code='stale'` ⇒ 上层回 **409** ✓（让用户刷新重试，绝不猜 ✓）
+ *
+ * ⚠️ 锁时长可用环境变量调（**只为自测**）：`DSH_BULLETIN_LOCK_WAIT_MS` / `..._STALE_MS` ✓
+ */
+const ANNOUNCE_LOCK_STALE_MS = Number(process.env.DSH_BULLETIN_LOCK_STALE_MS ?? '') || 10000;
+const ANNOUNCE_LOCK_WAIT_MS = Number(process.env.DSH_BULLETIN_LOCK_WAIT_MS ?? '') || 5000;
+const sleepSyncMs = (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+function withAnnounceLock(path, fn) {
+  const lock = `${path}.lock`;
+  const started = Date.now();
+  for (;;) {
+    try {
+      const fd = openSync(lock, 'wx');
+      try { writeSync(fd, String(process.pid)); } finally { closeSync(fd); }
+      break;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      try {
+        const st = statSync(lock);
+        if (Date.now() - st.mtimeMs > ANNOUNCE_LOCK_STALE_MS) { unlinkSync(lock); continue; }
+      } catch { continue; }
+      if (Date.now() - started > ANNOUNCE_LOCK_WAIT_MS) {
+        const busy = new Error(`拿不到公告文件锁（${lock}）—— 有别的进程正在写，请稍后重试`);
+        busy.code = 'busy';
+        throw busy;
+      }
+      sleepSyncMs(15 + Math.floor(Math.random() * 35));
+    }
+  }
+  try { return fn(); } finally { try { unlinkSync(lock); } catch { /* 释放失败就算了 */ } }
+}
+
+/**
+ * ⭐ **锁里复核 revision，然后整份写回**（三个写入口都用它 ✓）。
+ *
+ * @param {string} path 公告文件
+ * @param {unknown} expectedRevision 客户端那份快照的 revision
+ * @param {string} text 要写的新全文
+ */
+function writeAnnounceChecked(path, expectedRevision, text) {
+  return withAnnounceLock(path, () => {
+    const now = readTextOrNull(path);
+    if (now === null) {
+      const gone = new Error('公告文件在写入前不见了');
+      gone.code = 'not-found';
+      throw gone;
+    }
+    if (String(expectedRevision ?? '') !== revisionOf(now)) {
+      const stale = new Error('文件刚被别处改了（就在要写下去的那一刻）');
+      stale.code = 'stale';
+      throw stale;
+    }
+    writeAtomic(path, text);
+  });
 }
 
 /** `MM-DD`（公告行的日期格式）。 */
@@ -940,8 +1013,16 @@ export function apply(ctx, config) {
       });
       const next = `${current.replace(/\s*$/u, '')}\n${line}\n`;
       try {
-        writeAtomic(announcePath, next);
+        writeAnnounceChecked(announcePath, body?.revision, next);
       } catch (error) {
+        /**
+         * ⭐ **"刚被别人改了"是冲突（409），不是服务器错误（500）**（2026-10-05）——
+         * 和上面那道前置检查一个待遇 ✓：让用户刷新重试，而不是告诉他"服务器写失败了" ✓。
+         */
+        if (error?.code === 'stale') {
+          sendJson(res, 409, { ok: false, code: 'stale', message: '文件刚被别处改了（就在要写下去的那一刻），请刷新后重试' });
+          return;
+        }
         sendJson(res, 500, { ok: false, code: 'write-failed', message: `写文件失败：${String(error?.message ?? error)}` });
         return;
       }
@@ -1006,8 +1087,16 @@ export function apply(ctx, config) {
       lines[at] = newLine;
       const next = lines.join('\n');
       try {
-        writeAtomic(announcePath, next);
+        writeAnnounceChecked(announcePath, body?.revision, next);
       } catch (error) {
+        /**
+         * ⭐ **"刚被别人改了"是冲突（409），不是服务器错误（500）**（2026-10-05）——
+         * 和上面那道前置检查一个待遇 ✓：让用户刷新重试，而不是告诉他"服务器写失败了" ✓。
+         */
+        if (error?.code === 'stale') {
+          sendJson(res, 409, { ok: false, code: 'stale', message: '文件刚被别处改了（就在要写下去的那一刻），请刷新后重试' });
+          return;
+        }
         sendJson(res, 500, { ok: false, code: 'write-failed', message: `写文件失败：${String(error?.message ?? error)}` });
         return;
       }
@@ -1110,8 +1199,16 @@ export function apply(ctx, config) {
       lines.splice(at, 1);
       const next = lines.join('\n');
       try {
-        writeAtomic(announcePath, next);
+        writeAnnounceChecked(announcePath, body?.revision, next);
       } catch (error) {
+        /**
+         * ⭐ **"刚被别人改了"是冲突（409），不是服务器错误（500）**（2026-10-05）——
+         * 和上面那道前置检查一个待遇 ✓：让用户刷新重试，而不是告诉他"服务器写失败了" ✓。
+         */
+        if (error?.code === 'stale') {
+          sendJson(res, 409, { ok: false, code: 'stale', message: '文件刚被别处改了（就在要写下去的那一刻），请刷新后重试' });
+          return;
+        }
         sendJson(res, 500, { ok: false, code: 'write-failed', message: `写文件失败：${String(error?.message ?? error)}` });
         return;
       }

@@ -28,7 +28,15 @@ function makeTicketId(desk, summary, at) {
   for (let i = 0; i < s.length; i += 1) {
     h = (h * 31 + s.charCodeAt(i)) | 0;
   }
-  return `t${at.toString(36)}${(h >>> 0).toString(36).slice(0, 5)}`;
+  /**
+   * ⭐ **末尾再加一段随机**（2026-10-05 加，回应 Codex 审查 **P2-4**）。
+   *
+   * id 原来是"**时间 + 内容哈希**"，而哈希只吃 `桌号 + 摘要 + 时间` ✗ ⇒
+   * **同一毫秒 + 同一摘要**（指针不同）会撞成同一个 id ⇒ 第二张**覆盖**第一张 ✓
+   * （审查靠**冻结时间**复现过 ✓）。加 3 位 base36 随机 ⇒ 撞号要先撞毫秒、再撞随机 ✓。
+   */
+  const rand = Math.floor(Math.random() * 46656).toString(36).padStart(3, '0');
+  return `t${at.toString(36)}${(h >>> 0).toString(36).slice(0, 5)}${rand}`;
 }
 
 /**

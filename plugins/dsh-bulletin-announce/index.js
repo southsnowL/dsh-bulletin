@@ -17,7 +17,7 @@
  * 文件是本体：**插件停了，办公室退回纯文件流程，什么都不会丢。**
  */
 import { createHash } from 'node:crypto';
-import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // ⚠️ **版本号要读真的 package.json**（2026-09-29 加）：
@@ -767,14 +767,35 @@ export function apply(ctx, config) {
     return cursorDoc;
   }
 
-  function persistCursorDoc() {
-    if (cursorFile === undefined) return;
+  /**
+   * 把游标写盘。⚠️⚠️ **原子写 + 存不住就抛**（2026-10-05 改，回应 Codex 审查 **P2-6**）。
+   *
+   * ## 原来错在哪
+   *
+   * 直接 `writeFileSync(cursorFile, …)` **覆盖写** ✗ ⇒ 写到一半崩就是**半截 JSON** ✓；
+   * 而失败只 `log` 一句、**不上报** ✗ ⇒ 上层（`saveSeen`）以为存住了 ✓
+   * ⇒ **它那个"写失败要留痕"的分支永远不会触发** ✗ ⇒ 重启后从空账开始 ⇒ **公告重发一遍** ✓。
+   *
+   * ## 现在
+   *
+   * 先写 `.tmp` 再 `rename`（和 dispatch、面板同一个套路 ✓）；**失败抛出去** ✓
+   * ⇒ `saveSeen` 会如实记 `writeFailed` 并进 `domainIssues` ✓。
+   * ⭐ **存住了才更新内存那份**（`cursorDoc = doc`）—— 和 dispatch 的 P1-1 修法一致 ✓。
+   *
+   * @param {object} doc 要落盘的那份（**调用方先改副本** ✓）
+   */
+  function persistCursorDoc(doc) {
+    if (cursorFile === undefined) { cursorDoc = doc; return; }   // 没有文件 ⇒ 内存就是全部 ✓
+    mkdirSync(dirname(cursorFile), { recursive: true });
+    const tmp = `${cursorFile}.tmp-${process.pid}-${Date.now()}`;
     try {
-      mkdirSync(dirname(cursorFile), { recursive: true });
-      writeFileSync(cursorFile, `${JSON.stringify(cursorDoc, null, 2)}\n`, 'utf8');
+      writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
+      renameSync(tmp, cursorFile);
     } catch (error) {
-      log('游标文件写不了', { error: String(error?.message ?? error) });
+      try { unlinkSync(tmp); } catch { /* 清理失败就算了 */ }
+      throw error;
     }
+    cursorDoc = doc;                                             // ⭐ 存住了才认这份 ✓
   }
 
   /**
@@ -805,17 +826,25 @@ export function apply(ctx, config) {
    */
   const fileTable = {
     get: (key) => loadCursorDoc()[key],
+    /**
+     * ⭐⭐ **改副本 → 存住 → 才算数**（2026-10-05 改，回应 Codex 审查 **P1-1** + **P2-6**）。
+     *
+     * 原来先改内存那份、再 `persistCursorDoc()` ✗ —— 而它**吞错** ⇒
+     * 一次写失败之后，内存里"这条已经读过了"、磁盘上却什么都没有 ✗
+     * ⇒ 重启后**重新注入一遍**（用户看到的公告重复 ✓），而**谁也没被告知** ✓。
+     * 现在存不住就**抛** ✓ ⇒ `saveSeen` 的失败分支会如实记下来 ✓。
+     */
     put: (key, value) => {
-      loadCursorDoc()[key] = value;
-      persistCursorDoc();
+      const next = { ...loadCursorDoc(), [key]: value };
+      persistCursorDoc(next);
     },
     delete: (key) => {
-      const existed = Object.prototype.hasOwnProperty.call(loadCursorDoc(), key);
-      if (existed) {
-        delete loadCursorDoc()[key];
-        persistCursorDoc();
-      }
-      return existed;
+      const cur = loadCursorDoc();
+      if (!Object.prototype.hasOwnProperty.call(cur, key)) return false;
+      const next = { ...cur };
+      delete next[key];
+      persistCursorDoc(next);
+      return true;
     },
     /** ⭐ 和存储域的表同形状：**枚举全部 `[sessionId, record]`**。 */
     entries: () => Object.entries(loadCursorDoc()),
@@ -1107,13 +1136,26 @@ export function apply(ctx, config) {
     return muteState;
   }
 
+  /**
+   * 把静音状态写盘。⚠️ **原子写**，并且**返回"到底存住了没有"**（2026-10-05 改，回应 Codex 审查 **P2-6**）。
+   *
+   * 静音是**用户主动下的命令** ⇒ 存不住时**不该让命令失败**（静音当场就生效 ✓），
+   * 但**必须如实告诉用户"重启会失效"** ✓ —— 所以这里返回布尔，由调用方补一句 ✓。
+   *
+   * @returns {boolean} 是否真的落盘（没有配静音文件时算"不需要落盘，成功" ✓）
+   */
   function persistMuteState() {
-    if (muteFile === undefined) return;
+    if (muteFile === undefined) return true;
+    const tmp = `${muteFile}.tmp-${process.pid}-${Date.now()}`;
     try {
       mkdirSync(dirname(muteFile), { recursive: true });
-      writeFileSync(muteFile, `${JSON.stringify(loadMuteState(), null, 2)}\n`, 'utf8');
+      writeFileSync(tmp, `${JSON.stringify(loadMuteState(), null, 2)}\n`, 'utf8');
+      renameSync(tmp, muteFile);
+      return true;
     } catch (error) {
+      try { unlinkSync(tmp); } catch { /* 清理失败就算了 */ }
       log('静音状态写不了（静音可能不持久）', { error: String(error?.message ?? error) });
+      return false;
     }
   }
 
@@ -1147,12 +1189,14 @@ export function apply(ctx, config) {
         return { kind: 'success', text: '公告在这个会话里已经是静音状态。用 /unmute 恢复（届时会补上积压的）。' };
       }
       state.muted[sessionId] = { since: Date.now() };
-      persistMuteState();
-      log('已静音（本会话）', { session: sessionId, since: state.muted[sessionId].since });
+      /** ⭐ 存住了没有（2026-10-05）—— 存不住就明说"重启会失效" ✓，不假装一切正常 ✗ */
+      const mutedSaved = persistMuteState();
+      log('已静音（本会话）', { session: sessionId, since: state.muted[sessionId].since, saved: mutedSaved });
       return {
         kind: 'success',
         text: '办公室公告**在这个会话里**已静音。别的桌照常发公告，**别的会话也照常收** —— '
-          + '只是不注入给你；用 /unmute 恢复时会把这段时间**积压的一次性补上**（不会漏掉）。',
+          + '只是不注入给你；用 /unmute 恢复时会把这段时间**积压的一次性补上**（不会漏掉）。'
+          + (mutedSaved ? '' : '\n\n⚠️ **但这个静音状态没能写进磁盘** —— 这次重启之后它会失效。'),
       };
     },
   })));
@@ -1175,7 +1219,7 @@ export function apply(ctx, config) {
       //    **这正是用户要的**：*"以 /mute 为基线补发积压的，不然信息差补不上。"*
       const pending = activeEntries().length;
       delete state.muted[sessionId];
-      persistMuteState();
+      const unmutedSaved = persistMuteState();
       log('已解除静音（本会话，积压会在下一步补上）', {
         session: sessionId,
         activeNow: pending,
@@ -1184,7 +1228,8 @@ export function apply(ctx, config) {
       return {
         kind: 'success',
         text: `办公室公告**在这个会话里**已恢复。当前文件里有效 ${pending} 条 —— `
-          + '你静音期间积压的那些，会在下一次注入时**一并补上**。',
+          + '你静音期间积压的那些，会在下一次注入时**一并补上**。'
+          + (unmutedSaved ? '' : '\n\n⚠️ **但"解除静音"没能写进磁盘** —— 这次重启之后可能又变回静音。'),
       };
     },
   })));

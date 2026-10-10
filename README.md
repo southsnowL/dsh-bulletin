@@ -143,7 +143,7 @@ git clone https://github.com/southsnowL/dsh-bulletin.git
 cd dsh-bulletin
 ```
 
-后面的安装命令都在仓库根目录执行。三个插件还没有发布到 npm；仓库根目录本身不是插件包，要分别安装 `plugins/` 下面的三个包。
+后面的安装命令都在仓库根目录执行。三个插件**都已发布到 npm**（见下面「从 npm 装」那一节）；仓库根目录本身不是插件包，要分别安装 `plugins/` 下面的三个包，或者直接用包名从 npm 装。
 
 下文的 `dsh` 指你实际在用的那套 DSH 提供的命令，`<profile>` 换成正在用的 profile 名称。普通 CLI 安装还需要 `pnpm` 在 PATH 上，插件管理见 [DSH 官方说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md#插件管理)。
 

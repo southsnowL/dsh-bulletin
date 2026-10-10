@@ -12,7 +12,7 @@
  *   ② 域的表 schema 用 **zod**，而且必须 **`import { z } from 'zod'`（命名导入）** ——
  *      `import z from 'zod'` 拿到的是模块命名空间，造出来的 schema **没有 `parse`**。
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z as zod } from 'zod';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
@@ -247,17 +247,31 @@ function loadDoc(file) {
 function handleUnreadable(file, entry, error) {
   const stamp = new Date().toISOString().replace(/[:.]/gu, '-');
   const backup = `${file}.corrupt-${stamp}`;
-  let moved = false;
+  /**
+   * ⭐ **先挪、挪不动就拷、都不行就拒绝写**（2026-10-05 改，回应 Codex 审查 **P2-8**）。
+   *
+   * 原来只有"挪"一条路 ✗ —— 挪失败就**继续用空文档跑** ⇒ 下一次写把原文件**整份盖掉** ✗。
+   * 现在多一条"**拷贝**"（拷成了就同样保住了历史 ✓），
+   * 两条都不行才打 `writeBlocked` **拒绝写** ✓（见 `assertWritable`）。
+   */
+  let saved = false;      // 原文件是否已被留档（挪走 或 拷走）
+  let how = '';
   try {
     renameSync(file, backup);        // 挪走 ⇒ 后面的写不会覆盖它
-    moved = true;
-  } catch { /* 挪不走也不能让插件起不来 */ }
+    saved = true; how = '挪';
+  } catch {
+    try {
+      copyFileSync(file, backup);    // 挪不动（跨设备/被占用）⇒ 退一步**拷贝**
+      saved = true; how = '拷';
+    } catch { /* 两条都不行 ⇒ 下面拒绝写 */ }
+  }
+  if (!saved) entry.writeBlocked = true;   // ⭐ 从此刻起 put/delete 直接抛，绝不覆盖
   Object.assign(lastFileError, {
     at: Date.now(),
     file,
     error: `读不懂存储文件（${errText(error)}）`
-      + (moved ? ` —— 已挪到 \`${backup}\` 留档，**没有覆盖它**`
-        : ' —— ⚠️ **挪走失败，下一次写会覆盖它！**'),
+      + (saved ? ` —— 已${how}到 \`${backup}\` 留档，**没有覆盖它**`
+        : ' —— ⛔ **挪不走、也拷不走 ⇒ 已拒绝写入，不会覆盖它**（原文件还在）'),
   });
   entry.doc = {};
   entry.mtime = -1;
@@ -299,6 +313,92 @@ export const lastFileError = { at: null, error: null, file: null };
  * 这里必须如实抛，让调用方记下"这次真的失败了"——
  * **`catch {}` 吞掉写失败，正是"工具回执成功、磁盘上什么都没有"那个 bug。**
  */
+/**
+ * ⭐⭐ **单文件的跨进程互斥**（2026-10-05 加，回应 Codex 审查 **P1-2**）。
+ *
+ * ## 为什么需要它
+ *
+ * 每次写入都是"**读整份 → 改 → 原子替换**"。原子替换只保证**文件不会半截** ✓，
+ * **不保证"两个写者不互相覆盖"** ✗ —— 两个进程同读旧版本、各写各的，
+ * 后来者会把前者的改动**整份盖掉**，而两边**都回成功**。
+ *
+ * ## 怎么锁
+ *
+ * 用 `<file>.lock` 的**原子创建**（`openSync(lock, 'wx')`：文件已存在就抛 `EEXIST`）——
+ * 这一步在内核里是原子的，**不需要任何依赖** ✓。
+ * - 拿不到就**小睡重试**（同步睡法：`Atomics.wait` ✓），超过 5 秒**如实抛**（宁可报错也不盲写）
+ * - 锁**过期就抢**（默认 10 秒）—— 写者进程崩了不能把办公室永久卡住 ✓
+ * - `finally` 一定释放 ✓
+ */
+/**
+ * ⚠️ **两个数可以用环境变量调**（只为自测 —— 生产别设 ✓）：
+ * 自测要验证"抢过期锁"和"拿不到锁要如实失败"，总不能真等 5 秒/10 秒 ✓。
+ */
+const LOCK_STALE_MS = Number(process.env.DSH_BULLETIN_LOCK_STALE_MS ?? '') || 10000;
+const LOCK_WAIT_MS = Number(process.env.DSH_BULLETIN_LOCK_WAIT_MS ?? '') || 5000;
+const sleepSync = (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+function withFileLock(file, fn) {
+  const lock = `${file}.lock`;
+  mkdirSync(dirname(file), { recursive: true });
+  const started = Date.now();
+  for (;;) {
+    try {
+      const fd = openSync(lock, 'wx');
+      try { writeSync(fd, String(process.pid)); } finally { closeSync(fd); }
+      break;                                    // ⭐ 拿到锁
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error; // 不是"锁被占"⇒ 如实抛
+      try {
+        const st = statSync(lock);
+        if (Date.now() - st.mtimeMs > LOCK_STALE_MS) { unlinkSync(lock); continue; }  // 抢过期锁
+      } catch { continue; }                     // 锁刚好没了 ⇒ 立刻再试
+      if (Date.now() - started > LOCK_WAIT_MS) {
+        throw new Error(`拿不到存储锁（${lock}）—— 有别的进程正在写，请稍后重试`);
+      }
+      sleepSync(15 + Math.floor(Math.random() * 35));
+    }
+  }
+  try { return fn(); } finally { try { unlinkSync(lock); } catch { /* 释放失败就算了 */ } }
+}
+
+/**
+ * ⭐ **锁内跳过缓存、直接读盘**（写路径专用）。
+ *
+ * `loadDoc` 是为"读"优化的（mtime/size 没变就用缓存 ✓）——
+ * 而**写**必须看到磁盘此刻的真实内容 ✓，否则就又回到"读旧版本、整份盖掉" ✗。
+ */
+function readDocFresh(file) {
+  const entry = fileDocEntry(file);
+  try {
+    if (!existsSync(file)) { entry.doc = {}; entry.mtime = -1; entry.size = -1; return entry.doc; }
+    const st = statSync(file);
+    const parsed = JSON.parse(readFileSync(file, 'utf8'));
+    entry.doc = (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    entry.mtime = st.mtimeMs;
+    entry.size = st.size;
+    return entry.doc;
+  } catch (error) {
+    return handleUnreadable(file, entry, error);
+  }
+}
+
+/**
+ * ⭐ **这个文件还允许写吗**（2026-10-05 加，回应 Codex 审查 **P2-8**）。
+ *
+ * 坏文件挪走失败时，原来会**继续用空文档跑** ✗ ⇒ 下一次写就把原文件**整份盖掉** ✗
+ * （那份历史可能还能人工救回来）。
+ * ⇒ 现在：挪不走就**再试拷贝** ✓；连拷贝都失败 ⇒ 打上 `writeBlocked` ⇒ **拒绝写** ✓
+ * （宁可这一轮投递失败并如实报错，也不静默毁掉数据 ✓）。
+ */
+function assertWritable(file) {
+  const entry = fileDocEntry(file);
+  if (entry.writeBlocked === true) {
+    throw new Error('存储文件读不懂，而且挪不走、也拷不走 ⇒ 为免覆盖它，**拒绝写入**。'
+      + `原文件留着，请人工处理：${file}`);
+  }
+}
+
 function saveDoc(file, doc) {
   mkdirSync(dirname(file), { recursive: true });
   const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
@@ -322,7 +422,13 @@ function saveDoc(file, doc) {
  * ⚠️ **必须能"列全部"**：原来只有 `get/put/delete` ⇒ 退回文件存储时
  * `list_tickets` 直接报 `entries is not a function`，**投递整个不可用**。
  */
-function fileTable(file, tableName) {
+/**
+ * 文件里的一张表。
+ *
+ * ⚠️ **导出只为自测**（生产路径走 `openStore` ✓）—— 缓存回滚、文件锁、
+ * 坏文件拒绝写这些**都发生在这一层**，而假的表测不出来 ✓（2026-10-05）。
+ */
+export function fileTable(file, tableName) {
   const tableOf = (doc) => {
     const t = doc[tableName];
     if (t !== null && typeof t === 'object' && !Array.isArray(t)) return t;
@@ -365,15 +471,35 @@ function fileTable(file, tableName) {
      * > **存储层的职责是"如实"，不是"体贴"。**
      */
     put: (key, value) => {
-      const doc = loadDoc(file);
-      tableOf(doc)[key] = value;
-      try {
-        saveDoc(file, doc);                    // ⭐ 写回**整份**文档（所有表一起）
-      } catch (error) {
-        /** ⚠️ 仍然记一份（诊断用），**但绝不吞掉**。 */
-        Object.assign(lastFileError, { at: Date.now(), error: errText(error), file });
-        throw error;
-      }
+      assertWritable(file);
+      /**
+       * ⭐⭐ **锁内重新读盘、改副本、成功才更新缓存**（2026-10-05 改，回应 Codex 审查 P1-1 + P1-2）。
+       *
+       * ### 原来错在哪（两个毛病叠在一起）
+       *
+       * 1. **先改缓存、再写盘，写失败不回滚** ✗ —— 工具如实报"本次投递未生效" ✓，
+       *    可那张单子**已经躺在内存里** ✗ ⇒ 之后任何一次**成功的写入**都会把它一起落盘 ✗
+       *    （而且写入失败不会更新 `entry.mtime` ⇒ 缓存会一直被认为是"有效的" ✗）。
+       * 2. **读的是缓存**（可能是几秒前的版本）✗ ⇒ 与别的进程互相整份覆盖。
+       *
+       * ### 现在
+       *
+       * 全程在**文件锁**里 ✓，用 `readDocFresh` 看**磁盘此刻**的内容 ✓，
+       * 在**副本**上改 ✓ —— `saveDoc` 成功时才把缓存换成新文档 ✓（它内部会 `entry.doc = doc`）。
+       * **写失败 ⇒ 缓存一个字都没动** ✓，那张单子**不会**在以后"复活" ✓。
+       */
+      withFileLock(file, () => {
+        const doc = readDocFresh(file);
+        const next = structuredClone(doc);
+        tableOf(next)[key] = value;
+        try {
+          saveDoc(file, next);                 // ⭐ 写回**整份**文档（所有表一起）
+        } catch (error) {
+          /** ⚠️ 仍然记一份（诊断用），**但绝不吞掉**；缓存保持原样 ✓。 */
+          Object.assign(lastFileError, { at: Date.now(), error: errText(error), file });
+          throw error;
+        }
+      });
     },
     /**
      * ⚠️ **`delete` 这里仍然是"记了不抛"**（2026-10-01 只改了 `put`）——
@@ -382,16 +508,28 @@ function fileTable(file, tableName) {
      * （**如果哪天要改，请先想清楚"多留一行"和"少存一条"哪个更糟。**）
      */
     delete: (key) => {
-      const doc = loadDoc(file);
-      const t = tableOf(doc);
-      const had = Object.prototype.hasOwnProperty.call(t, key);
-      if (had) {
-        delete t[key];
-        try { saveDoc(file, doc); } catch (error) {
+      assertWritable(file);
+      /**
+       * ⭐ **和 `put` 同一套**（2026-10-05 改）：锁内重新读盘、改副本、成功才更新缓存 ✓。
+       *
+       * ⚠️ **仍然按原决定不抛**（见上面那段：删除失败的后果是"多留一行"，与 `put` 不对称 ✓）——
+       * 但**缓存不再撒谎**了 ✓：原来写失败时缓存里那一行**已经没了** ✗ ⇒
+       * 进程内看着"删掉了"、重启后它又回来了 ✗（Codex 审查 P1-1 的后半段 ✓）。
+       */
+      return withFileLock(file, () => {
+        const doc = readDocFresh(file);
+        const t0 = tableOf(doc);
+        const had = Object.prototype.hasOwnProperty.call(t0, key);
+        if (!had) return false;
+        const next = structuredClone(doc);
+        delete tableOf(next)[key];
+        try {
+          saveDoc(file, next);
+        } catch (error) {
           Object.assign(lastFileError, { at: Date.now(), error: errText(error), file });
         }
-      }
-      return had;
+        return true;
+      });
     },
     entries: () => Object.entries(tableOf(loadDoc(file)))[Symbol.iterator](),
     keys: () => Object.keys(tableOf(loadDoc(file)))[Symbol.iterator](),

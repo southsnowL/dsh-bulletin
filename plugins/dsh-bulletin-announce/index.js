@@ -1021,6 +1021,32 @@ export function apply(ctx, config) {
     const { table, where } = await activeTable();
     const record = table.get(sessionId);
     if (record !== undefined) await table.delete(sessionId);
+    /**
+     * ⭐⭐ **兜底那份也要清**（2026-10-05 加，回应 Codex 审查 **P2-5**）。
+     *
+     * ## 那个不对称
+     *
+     * **读**的时候是"**存储域 ∪ 兜底文件**"两份合并 ✓（谁记得都算数 ✓）——
+     * 而**清**的时候只清**当前那张表** ✗ ⇒ 兜底里的旧记录会被**合并回来** ✓ ⇒
+     * 这个会话的"已见"看起来没被清掉 ⇒ **压缩之后该重发的公告发不出去** ✓
+     * （用户以为"压缩了会补课"，其实没有 ✓）。
+     *
+     * ## 现在
+     *
+     * **和读对称：两边都清** ✓。清兜底失败**不抛**（压缩检测那条路不该因为存储失败而中断 ✓）——
+     * 但要**留痕**（`docs\06 习惯二`：凡是跳过都要留痕 ✓）。
+     */
+    if (where !== 'file') {
+      try {
+        if (fileTable.get(sessionId) !== undefined) fileTable.delete(sessionId);
+        log('clearSeen 顺带清了兜底游标（否则它会和被清掉的那份合并回来）', { session: sessionId.slice(0, 20) });
+      } catch (error) {
+        log('clearSeen 清兜底游标失败 —— 下次压缩后可能不重发', {
+          session: sessionId.slice(0, 20),
+          error: String(error?.message ?? error),
+        });
+      }
+    }
     log('clearSeen 已删除（下次重发并标注原因）', { session: sessionId.slice(0, 20), where });
   }
 

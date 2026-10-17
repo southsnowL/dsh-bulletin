@@ -37,6 +37,14 @@ dsh plugin --profile <profile> add dsh-bulletin-dispatch
 
 ## 兼容性
 
-不想让插件自己装平台依赖（`@deepseek-ai/dsh-*` 由 DSH 提供）—— 安装时 pnpm 提示 "peer 依赖没满足" 是正常的，**不用管**。
+**不声明宿主要求** ✓ —— 所以插件市场的卡片上会显示"**未声明宿主要求**"，那是**准确的**：
+我们不用版本号拦人，也确实不知道未来哪些版本一定配得上 ⇒ **不声明比乱声明诚实**。
+
+**实测过**：DSH `0.2.0-rc.2` 和 `0.2.1-rc.2`（后者发布当天验过：三个插件都正常挂载、测试全绿）。
+系统：Windows。
+
+**平台依赖由 DSH 提供**（本包不装、也不声明 peer）。用到的平台包：`@deepseek-ai/dsh-storage-domain`（单子与领取记录的存储域）、`@deepseek-ai/dsh-llm`（单子正文的上下文接口）。
+
+> ⚠️ 装的时候如果 pnpm 提示别的插件有 peer 问题，**与本包无关** —— 本包没有平台 peer，不会出现这类提示。
 
 Apache-2.0 · 完整文档在[仓库](https://github.com/southsnowL/dsh-bulletin)

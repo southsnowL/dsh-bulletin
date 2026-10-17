@@ -326,19 +326,19 @@ dsh plugin --profile <profile> add dsh-bulletin-panel
 **实测过的宿主版本**：`0.2.0-rc.2` 和 `0.2.1-rc.2`（后者于 2026-10-17 升级当天验过 ——
 三个插件都正常挂载，13 套契约与行为测试全绿）。系统：Windows。
 
-**三个包的 `package.json` 里都写着：**
+**⭐ 我们不在 `package.json` 里声明宿主要求**（插件市场那张卡片上会显示"**未声明宿主要求**" —— 那是准确的）。
 
-```json
-"engines": { "dsh": "*" }
-```
+为什么不声明：市场上没人用"任意版本"（`*`）这种写法 —— 要么写真实范围，要么干脆不写。
+写 `*` 看起来像在声称"任何版本都行"，而我们**只实测过两个**版本 ⇒ **不声明比乱声明诚实**。
 
-**这是什么意思**：**我们不按宿主版本拦人** —— 不是"永不坏"的承诺，而是"不用版本号拦住你"。
-理由：插件只依赖平台**公开的服务名**（`webServer` / `commands` / `systemPrompt` / `sessionQuery` /
-`storageDomain`），不碰内部实现，所以小版本升级通常不用跟着改（`0.2.0-rc.2 → 0.2.1-rc.2` 就是这样过关的）。
+我们真正的依据是：插件只依赖平台**公开的服务名**（`webServer` / `commands` / `systemPrompt` /
+`sessionQuery` / `storageDomain`），不碰内部实现 —— 所以 `0.2.0-rc.2 → 0.2.1-rc.2` 那次升级，
+三个插件**都没改一行代码就照常工作**。
 
-另外两个包还带 `peerDependencies`（`@deepseek-ai/dsh-*: "*"`）—— 那是**"我们用了哪几个平台包"的清单**，
-不是版本门槛。面板没有平台包的运行时 import，所以它的 peer 只写它真正需要的第三方宿主：
-`dsh-better-sidebar`。
+**我们实际用到的平台包**（写在这里，不在 `package.json` 里声明）：
+`@deepseek-ai/dsh-storage-domain`（投递状态与游标的存储域）、`@deepseek-ai/dsh-commands`（`/mute`、`/unmute` 命令）、
+`@deepseek-ai/dsh-llm`（公告注入时的上下文接口）。另外面板还需要第三方插件 **`dsh-better-sidebar`** ——
+它的 `dsh.client.inject` 已经写在面板的 `package.json` 里，装面板时插件市场会自动带上。
 
 **⇒ 真正兜底的是测试，不是版本号**：`test-contract` 会拿**装好的那份**去 import **当前平台的真实模块**，
 平台的接口一变它就先红。⚠️ 但本项目**不随仓库发布测试**（原因见 [docs/05](docs/05-取舍与放弃.md)），

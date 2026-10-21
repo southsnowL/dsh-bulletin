@@ -235,20 +235,21 @@ dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-announce
 > 三个包**都不声明平台 peer**（`@deepseek-ai/dsh-*` 由 DSH 提供，插件不自己装一份）。
 > 如果你装**别的**插件时看到这类 peer 警告，那是那个插件的事，与本仓库无关。
 
-要用面板，先装侧边栏，再装面板。侧边栏的版本要和你的 DSH 对上，下面两个组合都实测跑通过：
+要用面板，先装侧边栏，再装面板。侧边栏的版本要和你的 DSH 对上，下面这些组合都实测跑通过：
 
 | 你用的 DSH | 宿主 | 侧边栏版本 |
 |---|---|---|
+| 官方 DeepSeek Harness `0.2.1-rc.2` | 随程序自带 | `0.28.0` |
 | 官方 DeepSeek Harness `0.2.0-rc.2` | `dsh-web-app 0.2.0-rc.2` | `0.24.1` |
 | DSH Desktop `0.10.0` | `dsh-web 0.1.7-rc.2` | `0.22.1` |
 
 ```sh
-# 侧边栏按上表选版本，这里以官方 DSH 0.2.0-rc.2 为例
-dsh plugin --profile <profile> add dsh-better-sidebar@0.24.1
+# 侧边栏按上表选版本，这里以官方 DSH 0.2.1-rc.2 为例
+dsh plugin --profile <profile> add dsh-better-sidebar@0.28.0
 dsh plugin --profile <profile> add dsh-bulletin-panel
 ```
 
-[侧边栏的仓库](https://github.com/omdsh-dev/DSH-better-sidebar)里有按 DSH 版本选版本的说明：0.2.0 线的 DSH 用 `0.24.1` 起的版本，0.1.7 线（比如 Desktop `0.10.0`）固定 `0.22.1`。版本线不对时，侧边栏可能被 DSH 启动时的预检静默禁用，表现就是重开 DSH 后右侧栏没有"办公室"卡片。只用公告和单子时，侧边栏和面板都可以不装。
+[侧边栏的仓库](https://github.com/omdsh-dev/DSH-better-sidebar)里有按 DSH 版本选版本的说明：0.2.0 线的 DSH 用 `0.24.1` 起的版本，0.1.7 线（比如 Desktop `0.10.0`）固定 `0.22.1`。**另外，2026-10-21 起在一台长期使用的机器上实测：官方 `0.2.1-rc.2` 配 `0.28.0`，连续使用没有问题。** 版本线不对时，侧边栏可能被 DSH 启动时的预检静默禁用，表现就是重开 DSH 后右侧栏没有"办公室"卡片。只用公告和单子时，侧边栏和面板都可以不装。
 
 #### 4. 配置同一间办公室
 

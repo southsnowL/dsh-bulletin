@@ -236,6 +236,16 @@ export const Config = z.object({
     .description('人看的送达状态表（插件自动生成，不要手改）。留空 = <工作区>\\00-通用\\投递状态.md'),
 
   /**
+   * 桌位表在哪（**桌号 → 桌名/文件夹/职责**）。
+   *
+   * ⚠️ 默认值由 `workspaceRoot` 推导，理由同 `statusFile`。
+   * 各桌开新桌时**自己往表里加一行** ⇒ 状态表与面板就能显示桌名，
+   * **不用重启、不用改 profile 的 YAML**（2026-10-21 用户定的做法）。
+   */
+  deskRosterFile: z.string().default('')
+    .description('办公室桌位表。留空 = <工作区>\\00-通用\\桌位表.md'),
+
+  /**
    * 诊断日志（JSONL）。**留空 = 关闭**。
    *
    * ⚠️ 默认值也改成空了（2026-10-01）：原来写死作者本机的 `tmp\…`。
@@ -278,6 +288,9 @@ export function apply(ctx, config) {
     statusFile: config.statusFile !== '' && config.statusFile !== undefined
       ? config.statusFile
       : underRoot(config.workspaceRoot, '00-通用', '投递状态.md'),
+    deskRosterFile: config.deskRosterFile !== '' && config.deskRosterFile !== undefined
+      ? config.deskRosterFile
+      : underRoot(config.workspaceRoot, '00-通用', '桌位表.md'),
   };
 
   const { log, warn, problems } = createLog({ logPath: config.debugLog, tag: name });

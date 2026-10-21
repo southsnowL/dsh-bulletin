@@ -24,6 +24,7 @@
  * 另外：**它没有 5 秒防抖**（开工包提过）—— 用"写入/取走的瞬间"触发就够，
  * 防抖只会让仪表盘**滞后**。
  */
+import { deskNamesOf, readDeskRoster } from '../desk-roster.js';
 import { errText, safe } from '../log.js';
 import {
   CLAIMS_KEEP, lastFileError, lastWrite, listRecords, putTracked, readTextFile, sanitizeText, writeTextFile,
@@ -584,9 +585,22 @@ export function setup(api) {
    * ⇒ 分成两份：**`.md` 是给人看的纯 markdown**；**机器镜像写进存储的 `misc` 表**。
    */
   function generate(reason) {
+    /**
+     * ⭐⭐ **每次生成都现读桌位表**（2026-10-21）。
+     *
+     * 桌名原来只来自 `config.deskNames` —— 那是**挂载时的快照**，
+     * 改一次要重启一次（2026-10-20 用户为了一个桌名被迫重启）。
+     * 而"开一张新桌"是常事，所以桌名改成以**办公室文件**为主：
+     * 各桌自己往 `00-通用\桌位表.md` 加一行 ⇒ 下一次生成状态表就带上，**不用重启**。
+     *
+     * 优先级：**桌位表 > 配置里的 `deskNames`**（配置只补表里没有的桌）；
+     * 都没有 ⇒ 退回"桌 NN"（那是准确的：我们确实不知道它叫什么）。
+     */
+    const roster = readDeskRoster(config.deskRosterFile);
+    const mergedDeskNames = { ...(config.deskNames ?? {}), ...deskNamesOf(roster.rows) };
     const text = renderStatus({
       store: { ...store, lastWrite },
-      config: { ...config, __version: api.version },
+      config: { ...config, deskNames: mergedDeskNames, __version: api.version },
       /**
        * ⭐⭐ **"写了没人看"的那些东西**（2026-10-01 加，见"健康"段那段注释）。
        *

@@ -333,6 +333,34 @@ function todayMmDd(now = Date.now()) {
  * @param {object} p
  * @returns {string}
  */
+/**
+ * 解析办公室桌位表（`00-通用\桌位表.md`）—— 2026-10-21 加。
+ *
+ * ## 为什么面板自己也要会解析
+ *
+ * 桌名原来是从投递状态 markdown 里"反解"出来的（`桌 02（环境维护）`）——
+ * 那要求投递插件先生成过状态表。而桌位表是**办公室自己的文件**，
+ * 面板直接读它，就不依赖"谁先跑过"。
+ *
+ * ⚠️ **和 dispatch 的 `src\desk-roster.js` 是同一套规则，各留一份**（两个包独立安装）。
+ * 只认 `| NN |` 开头的行；表头/分隔行不会命中。
+ *
+ * @param {string|null} text
+ * @returns {{ rows: Array<{desk:string,name:string,folder:string,duty:string}>, skipped: number }}
+ */
+export function parseDeskRoster(text) {
+  const rows = [];
+  let skipped = 0;
+  if (typeof text !== 'string') return { rows, skipped };
+  for (const line of text.split(/\r?\n/u)) {
+    if (!/^\s*\|\s*`?\s*\d{2}\s*`?\s*\|/u.test(line)) continue;
+    const cells = line.split('|').slice(1, -1).map((c) => String(c ?? '').trim().replace(/^`|`$/gu, '').trim());
+    if (cells.length < 2 || cells[1] === '') { skipped += 1; continue; }
+    rows.push({ desk: cells[0], name: cells[1], folder: cells[2] ?? '', duty: cells[3] ?? '' });
+  }
+  return { rows, skipped };
+}
+
 export function formatAnnounceLine({ date, publisher, text, source, ttlDays }) {
   /**
    * ⚠️⚠️ **全角竖线不能让用户打进来**（2026-10-01 实测抓到的第二个坑）。
@@ -641,6 +669,8 @@ export function apply(ctx, config) {
 
   const announcePath = rel(config?.announceFile, '00-通用\\公告.md');
   const statusPath = rel(config?.statusFile, '00-通用\\投递状态.md');
+  /** 桌位表（桌号 → 桌名/文件夹/职责）。各桌自己登记，面板只读。 */
+  const deskRosterPath = rel(config?.deskRosterFile, '00-通用\\桌位表.md');
   /** 是否是"只读模式"（用户想彻底关掉写能力时用）。 */
   const readOnly = config?.allowWrite === false;
 
@@ -743,6 +773,7 @@ export function apply(ctx, config) {
   const readPayload = async (host) => {
     const announceText = readTextOrNull(announcePath);
     const statusText = readTextOrNull(statusPath);
+    const rosterText = readTextOrNull(deskRosterPath);
     const parsed = announceText === null ? null : parseAnnouncements(announceText);
     /**
      * ⭐ **先问一次公告插件**（整个响应共用一份映射，别每条公告问一遍）。
@@ -752,7 +783,7 @@ export function apply(ctx, config) {
     return {
       ok: true,
       readAt: Date.now(),
-      paths: { announce: announcePath, status: statusPath },
+      paths: { announce: announcePath, status: statusPath, roster: deskRosterPath },
       // ⭐ 写能力是否开着（前端据此决定按钮显不显示"未上线"）
       canWrite: !readOnly,
       announce: {
@@ -786,6 +817,16 @@ export function apply(ctx, config) {
         })),
       },
       status: { exists: statusText !== null, markdown: statusText ?? '' },
+      /**
+       * 桌位表（2026-10-21）：面板的「桌位」分栏直接渲染它，
+       * 公告里的「[02] 环境维护」也用它的名字（比从状态表反解更直接）。
+       * `exists:false` 不等于"没有桌" —— 是"表读不到"，界面要分开说。
+       */
+      desks: {
+        exists: rosterText !== null,
+        rows: parseDeskRoster(rosterText).rows,
+        skipped: parseDeskRoster(rosterText).skipped,
+      },
       /**
        * ⭐ **那个数字是不是"只数平台还认得的会话"**。
        *

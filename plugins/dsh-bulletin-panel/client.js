@@ -85,7 +85,7 @@ window.__ModuleLoader__.load({
      * 这个常量唯一的作用就是**代表这个文件的内容**。
      * **它一旦和实际不符，那块"一致吗"就会给出错误答案，那比没有它更糟。**
      */
-    const FE_VERSION = '0.3.36';
+    const FE_VERSION = '0.3.37';
 
     /* ═══════════════════════════════════════════════════════════════════
      * 样式 —— ⚠️ 只用主题变量（--dsw-alias-*）。写死颜色的话，亮色/暗色必然有一个不对。
@@ -1053,7 +1053,7 @@ window.__ModuleLoader__.load({
         clientFileVersion: str(d.clientFileVersion),
         seenByFiltered: typeof d.seenByFiltered === 'boolean' ? d.seenByFiltered : null,
         seenSessions: (typeof d.seenSessions === 'number' && Number.isFinite(d.seenSessions)) ? d.seenSessions : null,
-        paths: { ...paths, announce: str(paths.announce), status: str(paths.status) },
+        paths: { ...paths, announce: str(paths.announce), status: str(paths.status), roster: str(paths.roster) },
         announce: {
           ...announce,
           revision: announce.revision === undefined || announce.revision === '' ? null : announce.revision,
@@ -1208,7 +1208,7 @@ window.__ModuleLoader__.load({
 
     /** 记住上次停在哪个分栏（存不了就算了）。 */
     const VIEW_KEY = 'dsh-bulletin-panel:view';
-    const VIEWS = ['announce', 'dispatch', 'health'];
+    const VIEWS = ['announce', 'dispatch', 'desks', 'health'];
     function readView() {
       try {
         const v = window.localStorage.getItem(VIEW_KEY);
@@ -1749,6 +1749,32 @@ window.__ModuleLoader__.load({
           ? h('div', { className: 'oap-footnote' }, icon('info', 14),
             h('div', null, foot.map((l, i) => h('p', { key: i }, renderInline(l, `ft${i}`)))))
           : null);
+    }
+
+    /* ── 桌位 ───────────────────────────────────────────────────────── */
+
+    /**
+     * 办公室桌位表：桌号 / 桌名 / 文件夹 / 职责。
+     * 数据来自 00-通用\桌位表.md，由各桌自己登记；面板只读。
+     */
+    function DesksView({ data }) {
+      const desks = data.desks ?? { exists: false, rows: [] };
+      const path = str(data.paths.roster) || '00-通用\\桌位表.md';
+      const rows = Array.isArray(desks.rows) ? desks.rows : [];
+      const hint = desks.exists === false
+        ? `桌位表读不到：${path} —— 开新桌时请在那里加一行`
+        : '这张表在 00-通用\\桌位表.md，由各桌自己登记；表里没有的桌会显示成「桌 NN」';
+      return h('div', { className: 'oap-view' },
+        h('div', { className: 'oap-note' }, icon('info', 13), h('span', null, hint)),
+        rows.length === 0
+          ? h('div', { className: 'oap-quiet' }, icon('info', 15), h('span', null,
+            desks.exists === false ? '表读不到，所以这里没有内容' : '表里还没有任何一行'))
+          : h('div', { className: 'oap-stack' }, rows.map((d) => h('div', { key: d.desk, className: 'oap-p' },
+            h('b', { className: 'oap-mono' }, `[${d.desk}]`),
+            ' ',
+            h('b', null, d.name),
+            d.folder ? h('span', { className: 'oap-mono' }, ` · ${d.folder}`) : null,
+            d.duty ? h('span', null, ` — ${d.duty}`) : null))));
     }
 
     /* ── 健康 ───────────────────────────────────────────────────────── */
@@ -3145,7 +3171,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    const TABS = [['announce', '公告'], ['dispatch', '投递'], ['health', '健康']];
+    const TABS = [['announce', '公告'], ['dispatch', '投递'], ['desks', '桌位'], ['health', '健康']];
 
     function OfficePanelBody(props) {
       /** ⭐ 组件这一半的样式引用（和 `apply` 那一半各自计数 —— 见 `acquirePanelCss` 的注释）。 */
@@ -3300,7 +3326,23 @@ window.__ModuleLoader__.load({
 
       const parsed = useMemo(() => parseStatus(data === null ? '' : data.status.markdown), [data]);
       const picked = useMemo(() => pickSections(parsed), [parsed]);
-      const deskNames = useMemo(() => (data === null ? {} : deskNamesFrom(data.status.markdown)), [data]);
+      const deskNames = useMemo(() => {
+        if (data === null) return {};
+        /**
+         * 桌名先看「桌位表」（2026-10-21）。
+         *
+         * 原来只从投递状态 markdown 里反解（`桌 02（环境维护）`）——
+         * 那要求投递插件先生成过状态表。桌位表是办公室自己的文件，
+         * 面板直接读它，不依赖"谁先跑过"；表里没有的桌再退回老路。
+         */
+        const fromRoster = {};
+        for (const row of data.desks?.rows ?? []) {
+          if (row && typeof row.desk === 'string' && typeof row.name === 'string') {
+            fromRoster[String(Number(row.desk))] = row.name;
+          }
+        }
+        return { ...deskNamesFrom(data.status.markdown), ...fromRoster };
+      }, [data]);
       /**
        * 删除记录 → 显示行（拆好被删那一行、解析好时间、给个稳定的 key）。算一次，健康页和公告页（跨页指路）共用。
        * ⚠️ 这只是**派生**出来给界面用的；`deletions` 本身原样留着（`null` 还是 `null`）。
@@ -3400,6 +3442,8 @@ window.__ModuleLoader__.load({
         h('div', { className: 'oap-path' }, '数据来自宿主半边的只读路由 /sidebar/api/office。装好后需要硬刷新页面。'));
       } else if (view === 'dispatch') {
         content = h(DispatchView, { key: 'dispatch', data, parsed, picked, seg, setSeg, query: dQuery, setQuery: setDQuery });
+      } else if (view === 'desks') {
+        content = h(DesksView, { key: 'desks', data });
       } else if (view === 'health') {
         content = h(HealthView, {
           key: 'health', data, parsed, picked, onCopy: copy, deletions, delAsked, delRows, deskNames, delJump, onJumpDone: jumpDone,

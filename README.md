@@ -8,7 +8,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![DeepSeek Harness 插件](https://img.shields.io/badge/DeepSeek_Harness-插件-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)
-[![实测：DSH 0.2.0-rc.2 · Desktop 0.10.0](https://img.shields.io/badge/实测-DSH_0.2.0--rc.2_·_Desktop_0.10.0-2ea44f)](#3-安装插件)
+[![实测：DSH 0.2.1-rc.2](https://img.shields.io/badge/实测-DSH_0.2.1--rc.2-2ea44f)](#3-安装插件)
 ![实测平台：Windows](https://img.shields.io/badge/实测平台-Windows-0078d4)
 
 [一次跨工作区协作](#-一次跨工作区协作) · [会话之间是平级对等的](#-会话之间是平级对等的) · [快速开始](#-快速开始) · [文档](#-文档)
@@ -166,6 +166,7 @@ D:\my-office\
 ├─ 00-通用\
 │  ├─ 公告.md                从示例复制，保留格式和规则说明
 │  ├─ 投递状态.md            插件生成，不要手改
+│  ├─ 桌位表.md              桌号 → 桌名/职责；开新桌自己加一行（普通文件，不用重启）
 │  └─ 信箱\
 │     ├─ README-信箱怎么用.md 从示例复制
 │     ├─ 01\
@@ -173,7 +174,7 @@ D:\my-office\
 └─ 交付区\                   可选：给用户的成品
 ```
 
-`01-游戏开发`、`02-环境维护` 的工作目录可以留在原来的位置，不必搬进办公室。复制过来的 `公告.md` 末尾有一条格式示例，用完删掉；示例里的 `说明-这里是空的.md` 只是 Git 空目录的占位文件，也可以删掉。
+`01-游戏开发`、`02-环境维护` 的工作目录可以留在原来的位置，不必搬进办公室。复制过来的 `公告.md` 末尾有一条格式示例，用完删掉；示例里的 `说明-这里是空的.md` 只是 Git 空目录的占位文件，也可以删掉。 复制过来的 `桌位表.md` 里是示例办公室的两张桌，按你自己的桌号改 —— 它只是普通文件，改完不用重启。
 
 > [!WARNING]
 > 所有文本文件（公告、说明、`cordis.patch.yml`）都要存成**不带 BOM 的 UTF-8**。Windows PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会加 BOM，而 BOM 会让 DSH 出错，见 [04](docs/04-平台笔记与踩过的坑.md)。
@@ -198,6 +199,7 @@ D:\my-office\
 要交给别人的文件放进对方的 00-通用\信箱\NN\，再投单通知。
 信箱按"别人投递、主人读取"的约定使用；这不是文件系统的权限隔离。
 办公室的公共信息放在 00-通用；给用户的成品放在交付区。
+桌名登记在 00-通用\桌位表.md（一行一张桌）；开新桌或改桌名时改那里，不用重启。
 公告先给用户本人看过、同意后再追加；已有公告由用户决定改不改、删不删。
 投递状态由插件生成；取走不等于做完，不发没有信息量的回执。
 ```
@@ -230,8 +232,8 @@ dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-announce
 本地目录要用 `file:` 前缀，pnpm 会一并装好插件自己的依赖（直接写目录路径等于建符号链接，不会装依赖），说明见 [pnpm 官方文档](https://pnpm.io/10.x/cli/link#whats-the-difference-between-pnpm-link-and-using-the-file-protocol)。
 
 > [!NOTE]
-> 安装时 pnpm 会提示"peer 依赖没满足"（`@deepseek-ai/dsh-*`）—— **那是正常的，不用管**：
-> 那些包由 DSH 自己提供，插件不该自己装一份（装错版本反而会让插件加载失败）。
+> 三个包**都不声明平台 peer**（`@deepseek-ai/dsh-*` 由 DSH 提供，插件不自己装一份）。
+> 如果你装**别的**插件时看到这类 peer 警告，那是那个插件的事，与本仓库无关。
 
 要用面板，先装侧边栏，再装面板。侧边栏的版本要和你的 DSH 对上，下面两个组合都实测跑通过：
 

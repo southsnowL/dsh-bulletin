@@ -37,7 +37,7 @@
 
 ## 本仓自己的依赖（`zod` · `schemastery`）
 
-| 包 | 运行期依赖 | peer 依赖（**宿主提供**） |
+| 包 | 运行期依赖 | 从宿主取用的平台包（**不随本仓库分发**） |
 |---|---|---|
 | `dsh-bulletin-announce` | `zod` · `schemastery` | `@deepseek-ai/dsh-commands` · `@deepseek-ai/dsh-llm` · `@deepseek-ai/dsh-storage-domain` |
 | `dsh-bulletin-dispatch` | `zod` · `schemastery` | `@deepseek-ai/dsh-llm` · `@deepseek-ai/dsh-storage-domain` |
@@ -52,7 +52,8 @@
 
 **⇒ 所以这里不需要你在项目介绍里反复署名** —— **要保留声明的是那些代码，不是"你用了它"这件事。**
 
-**⇒ `@deepseek-ai/*` 那几个是宿主提供的**（peer），**不是打包进去的**，也不由本仓库分发。
+**⇒ `@deepseek-ai/*` 那几个是宿主提供的**（运行期从 DSH 取用；2026-10-17 起不再在 `package.json` 里声明 peer ——
+声明 `"*"` 只表示"我们要用它"，不是版本要求，所以干脆不写），**不是打包进去的**，也不由本仓库分发。
 
 ### 想自己核这几条许可的话
 

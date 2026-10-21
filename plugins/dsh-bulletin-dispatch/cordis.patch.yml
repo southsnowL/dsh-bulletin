@@ -20,7 +20,8 @@
       #   name: dsh-bulletin-dispatch
       #   config:
       #     workspaceRoot: D:\my-office
-      #     deskNames:
+      #     deskRosterFile: D:\my-office\00-通用\桌位表.md
+      #     deskNames:            # 只补桌位表里没有的桌
       #       "01": 甲组
       #       "02": 乙组
       #     statusFile: D:\my-office\00-通用\投递状态.md
@@ -44,7 +45,10 @@
       #   （⚠️ 原来这里写成"想只用一部分就逐个开" —— 说反了）。
       #   子项：`identity` · `sessionGc` · `proposeRename` · `dispatch` · `dispatchTools` · `status`。
       #   **清单里没有的功能就是没有的**（比如曾经的 `guard` 已删，不是"关着而已"）。
-      # - `deskNames` —— 桌号 → 桌名。**不配也能跑**（显示成"桌 01"）
+      # - `deskRosterFile` —— 桌位表（桌号 → 桌名/文件夹/职责）在哪。
+      #   **留空 ⇒ `<workspaceRoot>\\00-通用\\桌位表.md`**；桌名**每次现读**这张表
+      #   （各桌自己加行）⇒ 改完不用重启。表里没有的桌显示成"桌 01"
+      # - `deskNames` —— 桌名的**补充**（桌位表里没有的桌才用）。只影响显示，认桌不靠它
       # - `identityNotice` —— 认桌成功后注入的那一句（`{desk}` / `{title}` 会被替换）
       # - `recheckMs` —— 多久检查一次会话标题（认桌）
       # - `sweepIntervalMs` —— 会话回收的节流（毫秒）。0 = 关掉回收

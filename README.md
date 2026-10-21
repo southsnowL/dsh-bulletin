@@ -259,6 +259,9 @@ dsh plugin --profile <profile> add dsh-bulletin-panel
   name: dsh-bulletin-dispatch
   config:
     workspaceRoot: 'D:\my-office'
+    # 桌名优先读这个文件（各桌自己登记，改完不用重启）
+    deskRosterFile: 'D:\my-office\00-通用\桌位表.md'
+    # 下面这张表只补"桌位表里没有的桌"
     deskNames:
       '01': 游戏开发
       '02': 环境维护

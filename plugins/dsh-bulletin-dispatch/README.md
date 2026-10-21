@@ -15,7 +15,8 @@ dsh plugin --profile <profile> add dsh-bulletin-dispatch
   name: dsh-bulletin-dispatch
   config:
     workspaceRoot: 'D:\my-office'
-    deskNames:
+    deskRosterFile: 'D:\my-office\00-通用\桌位表.md'   # 桌名优先读它（各桌自己登记）
+    deskNames:            # 只补桌位表里没有的桌
       '01': 游戏开发
       '02': 环境维护
     statusFile: 'D:\my-office\00-通用\投递状态.md'

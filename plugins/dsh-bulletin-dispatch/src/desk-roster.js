@@ -66,6 +66,20 @@ export function deskNamesOf(rows) {
 }
 
 /**
+ * 把"配置里的桌名"和"桌位表"合起来：**表优先**。
+ *
+ * 桌位表是办公室的登记（各桌自己加行）；配置里的 `deskNames` 只用来补
+ * 表里没有的桌（例如某台机器还没建这张表时的过渡）。
+ *
+ * @param {Record<string,string>|undefined} configNames
+ * @param {Array<{desk:string,name:string}>} rosterRows
+ * @returns {Record<string,string>}
+ */
+export function mergeDeskNames(configNames, rosterRows) {
+  return { ...(configNames ?? {}), ...deskNamesOf(rosterRows) };
+}
+
+/**
  * 读桌位表。**永远不抛**（状态表不能因为一个 markdown 文件读不了就整份失败）。
  *
  * @param {string} file

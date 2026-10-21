@@ -24,7 +24,7 @@
  * 另外：**它没有 5 秒防抖**（开工包提过）—— 用"写入/取走的瞬间"触发就够，
  * 防抖只会让仪表盘**滞后**。
  */
-import { deskNamesOf, readDeskRoster } from '../desk-roster.js';
+import { mergeDeskNames, readDeskRoster } from '../desk-roster.js';
 import { errText, safe } from '../log.js';
 import {
   CLAIMS_KEEP, lastFileError, lastWrite, listRecords, putTracked, readTextFile, sanitizeText, writeTextFile,
@@ -597,7 +597,7 @@ export function setup(api) {
      * 都没有 ⇒ 退回"桌 NN"（那是准确的：我们确实不知道它叫什么）。
      */
     const roster = readDeskRoster(config.deskRosterFile);
-    const mergedDeskNames = { ...(config.deskNames ?? {}), ...deskNamesOf(roster.rows) };
+    const mergedDeskNames = mergeDeskNames(config.deskNames, roster.rows);
     const text = renderStatus({
       store: { ...store, lastWrite },
       config: { ...config, deskNames: mergedDeskNames, __version: api.version },

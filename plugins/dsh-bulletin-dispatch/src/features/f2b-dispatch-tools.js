@@ -17,6 +17,7 @@
  * **要不要做由对方（和用户）决定**。所以工具描述里写明"**不需要回执**"，
  * 免得收方纠结要不要回应（2026-09-30："别让它重新分析/分心"）。
  */
+import { mergeDeskNames, readDeskRoster } from '../desk-roster.js';
 import { deskLabel, OFFICE_DESK } from '../identity.js';
 import { isTaken } from './f2-dispatch.js';
 import { lastWrite, listRecords, putTracked } from '../store.js';
@@ -88,9 +89,10 @@ function normalizeDesk(raw) {
 export function setup(api) {
   const { ctx, config, log, warn, store } = api;
   const tickets = store.tables.tickets;
-  const deskNames = config.deskNames ?? {};
+  /** 桌名现读（2026-10-21）：理由同 f1 —— 桌位表各桌自己登记，改完不该等重启。 */
+  const liveDeskNames = () => mergeDeskNames(config.deskNames, readDeskRoster(config.deskRosterFile).rows);
 
-  const deskHint = () => Object.entries(deskNames)
+  const deskHint = () => Object.entries(liveDeskNames())
     .map(([id, name]) => `\`${id}\`（${name}）`).join('、');
 
   // ── 工具 ①：发单 ──────────────────────────────────────────────────────────

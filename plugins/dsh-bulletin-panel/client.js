@@ -85,7 +85,7 @@ window.__ModuleLoader__.load({
      * 这个常量唯一的作用就是**代表这个文件的内容**。
      * **它一旦和实际不符，那块"一致吗"就会给出错误答案，那比没有它更糟。**
      */
-    const FE_VERSION = '0.3.38';
+    const FE_VERSION = '0.3.39';
 
     /* ═══════════════════════════════════════════════════════════════════
      * 样式 —— ⚠️ 只用主题变量（--dsw-alias-*）。写死颜色的话，亮色/暗色必然有一个不对。
@@ -2134,6 +2134,11 @@ window.__ModuleLoader__.load({
             kvRow('公告文件', path(data.paths.announce), data.paths.announce),
             kvRow('投递状态文件', path(data.paths.status), data.paths.status),
             deletions !== null && deletions.path ? kvRow('删除记录文件', path(deletions.path), deletions.path) : null,
+            /**
+             * 桌位表（2026-10-21）：桌名就是从这里来的 —— 不单开分栏，但要让它在
+             * 「文件信息」里可见（用户 2026-10-21 要求："这个没有加桌位表的 md"）。
+             */
+            data.paths.roster !== '' ? kvRow('桌位表', path(data.paths.roster), data.paths.roster) : null,
             kvRow('写入', writeText),
             factsOf(parsed).map((f, i) => kvRow(f.k || `其它 ${i + 1}`, renderInline(f.v, `fact${i}`), null, `fact${i}`)))));
     }

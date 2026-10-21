@@ -31,6 +31,7 @@
  *    `cwd` 能对上某张桌的工作区 ⇒ 用那张桌的名字；否则用**最近在改的文件路径**推。
  */
 import { deskFromTitle, deskLabel, isResolvedDesk, lookupDesk, rememberDesk } from '../identity.js';
+import { mergeDeskNames, readDeskRoster } from '../desk-roster.js';
 import { errText } from '../log.js';
 
 /** 本功能的配置键（与 `index.js` 的开关同名）。 */
@@ -53,7 +54,11 @@ const SECTION_ORDER = 400;
 export function setup(api) {
   const { ctx, config, log, warn, store } = api;
   const sessions = store.tables.sessions;
-  const deskNames = config.deskNames ?? {};
+  /**
+   * 桌名**每次用时现读**（2026-10-21）：桌位表由各桌自己登记，
+   * 不能吃挂载时的配置快照（那要重启）。配置里的 deskNames 只补表里没有的桌。
+   */
+  const liveDeskNames = () => mergeDeskNames(config.deskNames, readDeskRoster(config.deskRosterFile).rows);
 
   /**
    * "这个会话提过了"的记账。
@@ -110,7 +115,7 @@ export function setup(api) {
 
         // ⚠️ **不猜桌号**：多张桌共用同一个 cwd（`<工作区>`），
         //    从会话上**推不出**它属于哪张桌 —— 猜错比不猜更糟。**直接问用户。**
-        const deskList = Object.entries(config.deskNames ?? {})
+        const deskList = Object.entries(liveDeskNames())
           .map(([id, name]) => `\`${id}-${name}\``).join('、');
         const text = '跨桌投递：这个会话的标题没有桌号前缀，**认不出它属于哪张桌**。\n'
           + (deskList === '' ? '' : `办公室的桌子有：${deskList}。\n`)

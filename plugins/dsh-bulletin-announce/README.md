@@ -37,7 +37,7 @@ dsh plugin --profile <profile> add dsh-bulletin-announce
 **不声明宿主要求** ✓ —— 所以插件市场的卡片上会显示"**未声明宿主要求**"，那是**准确的**：
 我们不用版本号拦人，也确实不知道未来哪些版本一定配得上 ⇒ **不声明比乱声明诚实**。
 
-**实测过**：DSH `0.2.0-rc.2` 和 `0.2.1-rc.2`（后者发布当天验过：三个插件都正常挂载、测试全绿）。
+**实测过**：DSH `0.2.0-rc.2`、`0.2.1-rc.2` 和 `0.2.1-rc.3`（最近一次 2026-10-24 验过：三个插件都正常挂载、15 套测试全绿）。
 系统：Windows。
 
 **平台依赖由 DSH 提供**（本包不装、也不声明 peer）。用到的平台包：`@deepseek-ai/dsh-storage-domain`（公告游标的存储域）、`@deepseek-ai/dsh-commands`（`/mute`、`/unmute` 命令）、`@deepseek-ai/dsh-llm`（注入接口）。

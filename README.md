@@ -8,7 +8,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![DeepSeek Harness 插件](https://img.shields.io/badge/DeepSeek_Harness-插件-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)
-[![实测：DSH 0.2.1-rc.2](https://img.shields.io/badge/实测-DSH_0.2.1--rc.2-2ea44f)](#3-安装插件)
+[![实测：DSH 0.2.1-rc.3](https://img.shields.io/badge/实测-DSH_0.2.1--rc.3-2ea44f)](#3-安装插件)
 ![实测平台：Windows](https://img.shields.io/badge/实测平台-Windows-0078d4)
 
 [一次跨工作区协作](#-一次跨工作区协作) · [会话之间是平级对等的](#-会话之间是平级对等的) · [快速开始](#-快速开始) · [文档](#-文档)
@@ -239,7 +239,7 @@ dsh plugin --profile <profile> add file:./plugins/dsh-bulletin-announce
 
 | 你用的 DSH | 宿主 | 侧边栏版本 |
 |---|---|---|
-| 官方 DeepSeek Harness `0.2.1-rc.2` | 随程序自带 | `0.28.0` |
+| 官方 DeepSeek Harness `0.2.1-rc.2` · `0.2.1-rc.3` | 随程序自带 | `0.28.0` |
 | 官方 DeepSeek Harness `0.2.0-rc.2` | `dsh-web-app 0.2.0-rc.2` | `0.24.1` |
 | DSH Desktop `0.10.0` | `dsh-web 0.1.7-rc.2` | `0.22.1` |
 
@@ -249,7 +249,8 @@ dsh plugin --profile <profile> add dsh-better-sidebar@0.28.0
 dsh plugin --profile <profile> add dsh-bulletin-panel
 ```
 
-[侧边栏的仓库](https://github.com/omdsh-dev/DSH-better-sidebar)里有按 DSH 版本选版本的说明：0.2.0 线的 DSH 用 `0.24.1` 起的版本，0.1.7 线（比如 Desktop `0.10.0`）固定 `0.22.1`。**另外，2026-10-21 起在一台长期使用的机器上实测：官方 `0.2.1-rc.2` 配 `0.28.0`，连续使用没有问题。** 版本线不对时，侧边栏可能被 DSH 启动时的预检静默禁用，表现就是重开 DSH 后右侧栏没有"办公室"卡片。只用公告和单子时，侧边栏和面板都可以不装。
+[侧边栏的仓库](https://github.com/omdsh-dev/DSH-better-sidebar)里有按 DSH 版本选版本的说明：0.2.0 线的 DSH 用 `0.24.1` 起的版本，0.1.7 线（比如 Desktop `0.10.0`）固定 `0.22.1`。**另外，2026-10-21 起在一台长期使用的机器上实测：官方 `0.2.1-rc.2` 配 `0.28.0`，连续使用没有问题；
+`0.2.1-rc.3`（2026-10-24 升级）也照常工作 —— 三个插件正常挂载、全套测试全绿、面板接口返回 200。** 版本线不对时，侧边栏可能被 DSH 启动时的预检静默禁用，表现就是重开 DSH 后右侧栏没有"办公室"卡片。只用公告和单子时，侧边栏和面板都可以不装。
 
 #### 4. 配置同一间办公室
 
@@ -329,16 +330,17 @@ dsh plugin --profile <profile> add dsh-bulletin-panel
 
 ### 兼容性与宿主要求（我们怎么声明的）
 
-**实测过的宿主版本**：`0.2.0-rc.2` 和 `0.2.1-rc.2`（后者于 2026-10-17 升级当天验过 ——
-三个插件都正常挂载，13 套契约与行为测试全绿）。系统：Windows。
+**实测过的宿主版本**：`0.2.0-rc.2`、`0.2.1-rc.2` 和 `0.2.1-rc.3`
+（`rc.2` 于 2026-10-17、`rc.3` 于 2026-10-24 升级当天验过 —— 三个插件都正常挂载，
+15 套契约与行为测试全绿）。系统：Windows。
 
 **⭐ 我们不在 `package.json` 里声明宿主要求**（插件市场那张卡片上会显示"**未声明宿主要求**" —— 那是准确的）。
 
 为什么不声明：市场上没人用"任意版本"（`*`）这种写法 —— 要么写真实范围，要么干脆不写。
-写 `*` 看起来像在声称"任何版本都行"，而我们**只实测过两个**版本 ⇒ **不声明比乱声明诚实**。
+写 `*` 看起来像在声称"任何版本都行"，而我们**只实测过这三个**版本 ⇒ **不声明比乱声明诚实**。
 
 我们真正的依据是：插件只依赖平台**公开的服务名**（`webServer` / `commands` / `systemPrompt` /
-`sessionQuery` / `storageDomain`），不碰内部实现 —— 所以 `0.2.0-rc.2 → 0.2.1-rc.2` 那次升级，
+`sessionQuery` / `storageDomain`），不碰内部实现 —— 所以 `0.2.0-rc.2 → 0.2.1-rc.2 → 0.2.1-rc.3` 这几次升级，
 三个插件**都没改一行代码就照常工作**。
 
 **我们实际用到的平台包**（写在这里，不在 `package.json` 里声明）：
